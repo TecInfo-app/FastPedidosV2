@@ -1,0 +1,109 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "UserProfile",
+      "description": "User profile containing basic settings",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "selectedStoreId": { "type": "string" }
+      },
+      "required": ["email"]
+    },
+    "store": {
+      "title": "Store",
+      "description": "A store owned by the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "isActiveToday": { "type": "boolean" }
+      },
+      "required": ["id", "name"]
+    },
+    "motoboy": {
+      "title": "Motoboy",
+      "description": "A delivery rider registered by the merchant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "password": { "type": "string" },
+        "isActiveToday": { "type": "boolean" },
+        "status": { "type": "string" },
+        "statusUpdatedAt": { "type": "number" }
+      },
+      "required": ["id", "name"]
+    },
+    "rate": {
+      "title": "Rate",
+      "description": "A delivery fee rate structure",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "value": { "type": "string" },
+        "isActiveToday": { "type": "boolean" }
+      },
+      "required": ["id", "description", "value"]
+    },
+    "order": {
+      "title": "Order",
+      "description": "An order created for delivery",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "storeName": { "type": "string" },
+        "motoboyName": { "type": "string" },
+        "feeValue": { "type": "string" },
+        "feeDescription": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "customerName": { "type": "string" },
+        "deliveryAddress": { "type": "string" },
+        "deliveryStatus": { "type": "string" },
+        "confirmationCode": { "type": "string" }
+      },
+      "required": ["id", "orderNumber", "storeName", "motoboyName", "feeValue", "feeDescription", "timestamp"]
+    },
+    "dailyReport": {
+      "title": "DailyReport",
+      "description": "A finalized daily report with metrics and orders",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "totalOrders": { "type": "number" },
+        "totalValue": { "type": "number" }
+      },
+      "required": ["id", "date", "timestamp", "totalOrders", "totalValue"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "userProfile",
+      "description": "User profile"
+    },
+    "/users/{userId}/stores/{storeId}": {
+      "schema": "store",
+      "description": "Merchant stores"
+    },
+    "/users/{userId}/motoboys/{motoboyId}": {
+      "schema": "motoboy",
+      "description": "Merchant motoboys"
+    },
+    "/users/{userId}/rates/{rateId}": {
+      "schema": "rate",
+      "description": "Merchant delivery rates"
+    },
+    "/users/{userId}/orders/{orderId}": {
+      "schema": "order",
+      "description": "Merchant deliveries/orders"
+    },
+    "/users/{userId}/dailyReports/{reportId}": {
+      "schema": "dailyReport",
+      "description": "Merchant daily reports"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "CIA DO CHOPP - FAST PEDIDOS",
+  "description": "Gerenciamento completo de Motoboys, Lojas, Pedidos e Taxas de Entrega.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
