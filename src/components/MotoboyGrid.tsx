@@ -21,9 +21,9 @@ export const MotoboyGrid: React.FC<MotoboyGridProps> = ({
 
   const filteredOrders = orders.filter((order) => {
     if (!cleanSearchTerm) return true;
-    const orderNumNorm = order.orderNumber.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const storeNorm = order.storeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const motoboyNorm = order.motoboyName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const orderNumNorm = (order.orderNumber || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const storeNorm = (order.storeName || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const motoboyNorm = (order.motoboyName || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
     return (
       orderNumNorm.includes(cleanSearchTerm) ||

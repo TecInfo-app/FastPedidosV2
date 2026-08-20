@@ -404,7 +404,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                       <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[11px] text-slate-600 font-bold mb-4">
                         <span className="text-[9px] uppercase tracking-wider text-slate-400 block mb-0.5">Itens do Pedido</span>
                         <p className="line-clamp-2 leading-relaxed">{order.items}</p>
-                        <span className="block mt-1 text-slate-900 text-xs font-black">Total: R$ {order.totalValue.replace('.', ',')}</span>
+                        <span className="block mt-1 text-slate-900 text-xs font-black">Total: R$ {String(order.totalValue || '0').replace('.', ',')}</span>
                       </div>
                     </div>
 
@@ -416,7 +416,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                             <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
                           </span>
                           <p className="text-xs text-slate-800 font-extrabold">
-                            Entregador: {assignedInHouseOrder.motoboyName.replace("iFood: ", "")}
+                            Entregador: {(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}
                           </p>
                           <span className="inline-block mt-1 bg-rose-200/50 text-rose-900 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md">
                             Entrega Fácil Ativa

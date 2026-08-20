@@ -142,8 +142,8 @@ export const MotoboyPortal: React.FC<MotoboyPortalProps> = ({
   const cleanSearchTerm = searchTerm.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const filteredMyOrders = myOrders.filter(o => {
     if (!cleanSearchTerm) return true;
-    const orderNumNorm = o.orderNumber.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const storeNorm = o.storeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const orderNumNorm = (o.orderNumber || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const storeNorm = (o.storeName || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     return orderNumNorm.includes(cleanSearchTerm) || storeNorm.includes(cleanSearchTerm);
   });
 

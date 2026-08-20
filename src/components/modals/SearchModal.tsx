@@ -39,9 +39,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   
   const matchedOrders = cleanTerm.length > 0
     ? orders.filter((o) => {
-        const orderNumNorm = o.orderNumber.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const storeNorm = o.storeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const motoboyNorm = o.motoboyName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const orderNumNorm = (o.orderNumber || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const storeNorm = (o.storeName || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const motoboyNorm = (o.motoboyName || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         return orderNumNorm.includes(cleanTerm) || storeNorm.includes(cleanTerm) || motoboyNorm.includes(cleanTerm);
       })
     : [];

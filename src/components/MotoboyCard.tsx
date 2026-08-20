@@ -135,9 +135,9 @@ export const MotoboyCard: React.FC<MotoboyCardProps> = ({
                   const feeFormatted = parseFloat(order.feeValue || '0').toFixed(2).replace('.', ',');
                   const storeInfo = order.storeName ? order.storeName : '';
 
-                  const orderNumNorm = order.orderNumber.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  const storeNorm = order.storeName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                  const motoboyNorm = order.motoboyName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                  const orderNumNorm = (order.orderNumber || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                  const storeNorm = (order.storeName || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                  const motoboyNorm = (order.motoboyName || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
                   const isMatched =
                     cleanSearchTerm.length > 0 &&

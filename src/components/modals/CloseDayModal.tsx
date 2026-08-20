@@ -78,7 +78,7 @@ export const CloseDayModal: React.FC<CloseDayModalProps> = ({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `Fechamento_CiaDoChopp_${report.date.replace(/\//g, '-')}.csv`);
+      link.setAttribute('download', `Fechamento_CiaDoChopp_${(report?.date || 'hoje').replace(/\//g, '-')}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
