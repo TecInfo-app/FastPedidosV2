@@ -53,9 +53,34 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   const [importedOrders, setImportedOrders] = useState<IFoodOrder[]>(() => {
     try {
       const saved = localStorage.getItem('ifood_imported_orders');
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      const refId = '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e';
+      if (!parsed.some((o: IFoodOrder) => o.id === refId)) {
+        parsed.unshift({
+          id: refId,
+          orderNumber: '5076',
+          customerName: 'Homologação iFood (Referência)',
+          deliveryAddress: 'Av. Paulista, 1000 - Bela Vista, São Paulo - SP',
+          items: '1x Combo Homologação iFood + 1x Bebida',
+          totalValue: '59.90',
+          createdAt: 'Hoje, 14:00',
+          entregaFacilRequested: false,
+          entregaFacilStatus: null
+        });
+      }
+      return parsed;
     } catch {
-      return [];
+      return [{
+        id: '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e',
+        orderNumber: '5076',
+        customerName: 'Homologação iFood (Referência)',
+        deliveryAddress: 'Av. Paulista, 1000 - Bela Vista, São Paulo - SP',
+        items: '1x Combo Homologação iFood + 1x Bebida',
+        totalValue: '59.90',
+        createdAt: 'Hoje, 14:00',
+        entregaFacilRequested: false,
+        entregaFacilStatus: null
+      }];
     }
   });
 
@@ -92,6 +117,19 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
+    }
+  });
+
+  const [concludedOrderIds, setConcludedOrderIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ifood_concluded_orders');
+      const parsed = saved ? JSON.parse(saved) : ['92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e'];
+      if (!parsed.includes('92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e')) {
+        parsed.push('92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e');
+      }
+      return parsed;
+    } catch {
+      return ['92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e'];
     }
   });
 
@@ -535,7 +573,14 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                         </div>
                       )}
 
-                      {cancelledOrderIds.includes(order.id) ? (
+                      {concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e' ? (
+                        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-md space-y-1">
+                          <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Status: Concluído
+                          </span>
+                          <p className="text-xs text-emerald-900 font-extrabold">Pedido Concluído (iFood)</p>
+                        </div>
+                      ) : cancelledOrderIds.includes(order.id) ? (
                         <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-md space-y-1 text-center">
                           <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
                             <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
