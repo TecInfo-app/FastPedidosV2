@@ -38,6 +38,41 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   const [iFoodOrders, setIFoodOrders] = useState<IFoodOrder[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // orderId being dispatched or requesting rider
   const [isSandbox, setIsSandbox] = useState(() => localStorage.getItem('ifood_sandbox') === 'true');
+  const [testSuiteResults, setTestSuiteResults] = useState<any[] | null>(null);
+  const [testSuiteLoading, setTestSuiteLoading] = useState(false);
+
+  const runCancellationTestSuite = async () => {
+    const clientId = localStorage.getItem('ifood_client_id') || '';
+    const clientSecret = localStorage.getItem('ifood_client_secret') || '';
+    const merchantId = localStorage.getItem('ifood_merchant_id') || '';
+    const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
+
+    if (!clientId || !clientSecret || !merchantId) {
+      onShowAlert('Insira as credenciais do iFood nas configurações antes de rodar os testes.', 'warning');
+      return;
+    }
+
+    setTestSuiteLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/ifood/test-cancellation-suite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, clientSecret, merchantId, sandbox })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestSuiteResults(data.tests);
+        onShowAlert(data.summary, 'success');
+      } else {
+        setTestSuiteResults(data.tests || []);
+        onShowAlert('A bateria de testes encontrou falhas.', 'error');
+      }
+    } catch (err: any) {
+      onShowAlert(`Erro ao executar bateria de testes: ${err.message}`, 'error');
+    } finally {
+      setTestSuiteLoading(false);
+    }
+  };
 
   useEffect(() => {
     const checkSandbox = () => {
@@ -399,21 +434,63 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       {/* Expanded iFood Orders List Container */}
       {isExpanded && (
         <div className="mt-3 bg-white border border-rose-200/80 rounded-3xl p-5 shadow-lg shadow-rose-100 animate-in slide-in-from-top-3 duration-200 space-y-4">
-          <div className="flex justify-between items-center p-3 rounded-2xl border bg-emerald-50/80 border-emerald-200">
+          <div className="flex flex-wrap justify-between items-center p-3 rounded-2xl border bg-emerald-50/80 border-emerald-200 gap-2">
             <span className="text-xs font-black flex items-center gap-1.5 text-emerald-950">
               <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[3]" />
               <span>{isSandbox ? 'Conectado (Sandbox)' : 'Conectado'}</span>
             </span>
-            <button
-              onClick={() => fetchIFoodOrders(false)}
-              disabled={loading}
-              className="p-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100/60"
-              title="Atualizar Lista"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Sincronizar</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={runCancellationTestSuite}
+                disabled={testSuiteLoading}
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white px-3 py-1.5 rounded-xl font-extrabold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                title="Executar bateria de testes para endpoint de cancelamento"
+              >
+                {testSuiteLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-300" />}
+                <span>Testar Cancelamento iFood</span>
+              </button>
+              <button
+                onClick={() => fetchIFoodOrders(false)}
+                disabled={loading}
+                className="p-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100/60"
+                title="Atualizar Lista"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span>Sincronizar</span>
+              </button>
+            </div>
           </div>
+
+          {/* Test Suite Results Report Box */}
+          {testSuiteResults && (
+            <div className="bg-slate-900 text-white p-4 rounded-2xl space-y-3 shadow-xl animate-in fade-in duration-200 border border-indigo-500/30">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <h4 className="text-xs font-black uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>Relatório da Bateria de Testes iFood (Cancelamento)</span>
+                </h4>
+                <button
+                  onClick={() => setTestSuiteResults(null)}
+                  className="text-slate-400 hover:text-white text-xs font-bold px-2 py-1 bg-slate-800 rounded-lg cursor-pointer transition"
+                >
+                  Fechar Relatório
+                </button>
+              </div>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {testSuiteResults.map((test, idx) => (
+                  <div key={idx} className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/50 flex items-start justify-between gap-3 text-xs">
+                    <div>
+                      <p className="font-extrabold text-white">{test.name}</p>
+                      <p className="text-slate-300 mt-0.5">{test.details}</p>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg font-black text-[10px] shrink-0 ${test.status === 'PASSED' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'}`}>
+                      {test.status === 'PASSED' ? 'APROVADO' : 'FALHOU'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Compact Filter and View Mode Header */}
           {displayedOrders.length > 0 && (() => {
