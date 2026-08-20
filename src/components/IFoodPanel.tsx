@@ -145,6 +145,8 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     onConfirm: () => {}
   });
 
+  const [orderFilter, setOrderFilter] = useState<'all' | 'new' | 'confirmed' | 'dispatched' | 'concluded' | 'cancelled'>('all');
+
   useEffect(() => {
     localStorage.setItem('ifood_imported_orders', JSON.stringify(importedOrders));
   }, [importedOrders]);
@@ -508,19 +510,103 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
             </button>
           </form>
 
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-10 gap-2">
-              <Loader2 className="w-8 h-8 text-rose-600 animate-spin" />
-              <span className="text-xs text-rose-800 font-bold">Buscando pedidos pendentes no iFood...</span>
-            </div>
-          ) : displayedOrders.length === 0 ? (
-            <div className="text-center py-8 bg-white/40 rounded-2xl border border-rose-100/50">
-              <p className="text-slate-500 text-sm font-semibold">Nenhum pedido pendente encontrado no momento.</p>
-              <p className="text-slate-400 text-xs mt-1 font-medium">Os pedidos aparecerão assim que forem feitos no iFood.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {displayedOrders.map((order) => {
+          {/* Status Filter Tabs */}
+          {displayedOrders.length > 0 && (() => {
+            const countNew = displayedOrders.filter(order => {
+              const isCancelled = cancelledOrderIds.includes(order.id);
+              const isConcluded = concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e';
+              const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
+              const isDispatched = dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
+              const isConfirmed = confirmedOrderIds.includes(order.id);
+              return !isCancelled && !isConcluded && !isDispatched && !isConfirmed;
+            }).length;
+
+            const countConfirmed = displayedOrders.filter(order => confirmedOrderIds.includes(order.id)).length;
+            const countDispatched = displayedOrders.filter(order => {
+              const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
+              return dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
+            }).length;
+            const countConcluded = displayedOrders.filter(order => concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e').length;
+            const countCancelled = displayedOrders.filter(order => cancelledOrderIds.includes(order.id)).length;
+
+            return (
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                <button
+                  onClick={() => setOrderFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  <span>Todos</span>
+                  <span className="bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded-full text-[10px]">{displayedOrders.length}</span>
+                </button>
+                <button
+                  onClick={() => setOrderFilter('new')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'new' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-indigo-700'}`}
+                >
+                  <span>Novos / A Confirmar</span>
+                  <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded-full text-[10px]">{countNew}</span>
+                </button>
+                <button
+                  onClick={() => setOrderFilter('confirmed')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'confirmed' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-blue-700'}`}
+                >
+                  <span>Em Preparo / Confirmados</span>
+                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded-full text-[10px]">{countConfirmed}</span>
+                </button>
+                <button
+                  onClick={() => setOrderFilter('dispatched')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'dispatched' ? 'bg-white text-amber-700 shadow-xs' : 'text-slate-600 hover:text-amber-700'}`}
+                >
+                  <span>Enviados / Despachados</span>
+                  <span className="bg-amber-100 text-amber-700 px-1.5 py-0.2 rounded-full text-[10px]">{countDispatched}</span>
+                </button>
+                <button
+                  onClick={() => setOrderFilter('concluded')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'concluded' ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-emerald-700'}`}
+                >
+                  <span>Concluídos</span>
+                  <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded-full text-[10px]">{countConcluded}</span>
+                </button>
+                <button
+                  onClick={() => setOrderFilter('cancelled')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'cancelled' ? 'bg-white text-rose-700 shadow-xs' : 'text-slate-600 hover:text-rose-700'}`}
+                >
+                  <span>Cancelados</span>
+                  <span className="bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded-full text-[10px]">{countCancelled}</span>
+                </button>
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const filteredOrders = displayedOrders.filter((order) => {
+              const isCancelled = cancelledOrderIds.includes(order.id);
+              const isConcluded = concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e';
+              const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
+              const isDispatched = dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
+              const isConfirmed = confirmedOrderIds.includes(order.id);
+              const isNew = !isCancelled && !isConcluded && !isDispatched && !isConfirmed;
+
+              if (orderFilter === 'new') return isNew;
+              if (orderFilter === 'confirmed') return isConfirmed;
+              if (orderFilter === 'dispatched') return isDispatched;
+              if (orderFilter === 'concluded') return isConcluded;
+              if (orderFilter === 'cancelled') return isCancelled;
+              return true;
+            });
+
+            return loading ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <Loader2 className="w-8 h-8 text-rose-600 animate-spin" />
+                <span className="text-xs text-rose-800 font-bold">Buscando pedidos pendentes no iFood...</span>
+              </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="text-center py-8 bg-white/40 rounded-2xl border border-rose-100/50">
+                <p className="text-slate-500 text-sm font-semibold">Nenhum pedido encontrado nesta aba.</p>
+                <p className="text-slate-400 text-xs mt-1 font-medium">Tente selecionar outra categoria de status acima.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredOrders.map((order) => {
                 const isDispatchLoading = actionLoading === order.id + '-dispatch';
                 const isDeliveryLoading = actionLoading === order.id + '-delivery';
                 const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
@@ -722,9 +808,10 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                 );
               })}
             </div>
-          )}
-        </div>
-      )}
+          );
+        })()}
+      </div>
+    )}
 
       {/* Confirmation Modal */}
       {modalConfig.isOpen && (
