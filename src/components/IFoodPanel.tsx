@@ -31,6 +31,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   onAssignToInHouseMotoboy,
   onAddEntregaFacilOrder,
 }) => {
+  const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
   const [isExpanded, setIsExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [iFoodOrders, setIFoodOrders] = useState<IFoodOrder[]>([]);
@@ -86,7 +87,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
     setImportLoading(true);
     try {
-      const response = await fetch('/api/ifood/dispatch', {
+      const response = await fetch(`${API_BASE}/api/ifood/dispatch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -144,7 +145,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
     if (!silent) setLoading(true);
     try {
-      const res = await fetch(`/api/ifood/orders?clientId=${encodeURIComponent(clientId)}&clientSecret=${encodeURIComponent(clientSecret)}&merchantId=${encodeURIComponent(merchantId)}&sandbox=${sandbox}`);
+      const res = await fetch(`${API_BASE}/api/ifood/orders?clientId=${encodeURIComponent(clientId)}&clientSecret=${encodeURIComponent(clientSecret)}&merchantId=${encodeURIComponent(merchantId)}&sandbox=${sandbox}`);
       if (res.ok) {
         const data = await res.json();
         setIFoodOrders(data);
@@ -183,7 +184,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   const handleRequestEntregaFacil = async (orderId: string, orderNumber: string) => {
     setActionLoading(orderId + '-delivery');
     try {
-      const res = await fetch('/api/ifood/entrega-facil', {
+      const res = await fetch(`${API_BASE}/api/ifood/entrega-facil`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId, orderNumber })
@@ -236,7 +237,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     }
 
     try {
-      const res = await fetch('/api/ifood/dispatch', {
+      const res = await fetch(`${API_BASE}/api/ifood/dispatch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber, sandbox })
@@ -268,7 +269,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     }
 
     try {
-      const res = await fetch(`/api/ifood/orders/${orderId}/cancel`, {
+      const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, clientSecret, merchantId })
