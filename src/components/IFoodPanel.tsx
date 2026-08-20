@@ -68,6 +68,15 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     }
   });
 
+  const [cancelledOrderIds, setCancelledOrderIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ifood_cancelled_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   useEffect(() => {
     localStorage.setItem('ifood_imported_orders', JSON.stringify(importedOrders));
   }, [importedOrders]);
@@ -329,11 +338,9 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       const data = await res.json();
       if (data.success) {
         onShowAlert(`Pedido Nº ${orderNumber} cancelado com sucesso no iFood!`, 'success');
-        const updatedDismissed = [...dismissedOrderIds, orderId];
-        setDismissedOrderIds(updatedDismissed);
-        localStorage.setItem('ifood_dismissed_orders', JSON.stringify(updatedDismissed));
-        setIFoodOrders(prev => prev.filter(o => o.id !== orderId));
-        setImportedOrders(prev => prev.filter(o => o.id !== orderId));
+        const updatedCancelled = [...cancelledOrderIds, orderId];
+        setCancelledOrderIds(updatedCancelled);
+        localStorage.setItem('ifood_cancelled_orders', JSON.stringify(updatedCancelled));
       } else {
         onShowAlert(`[iFood] ${data.message}`, 'error');
       }
@@ -473,7 +480,14 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
                     {/* Delivery Status or Action buttons */}
                     <div className="pt-2 border-t border-slate-100">
-                      {isAssignedViaIFoodDelivery ? (
+                      {cancelledOrderIds.includes(order.id) ? (
+                        <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-xl space-y-1 text-center">
+                          <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
+                            <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
+                          </span>
+                          <p className="text-[11px] text-rose-800 font-bold">Cancelamento confirmado e registrado na plataforma.</p>
+                        </div>
+                      ) : isAssignedViaIFoodDelivery ? (
                         <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-xl space-y-1">
                           <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
                             <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
@@ -508,40 +522,38 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <button
-                              onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
-                              disabled={actionLoading === order.id + '-confirm'}
-                              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-extrabold py-2 px-2 rounded-xl text-[11px] transition duration-200 flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-                              title="Confirmar recebimento do pedido no iFood"
-                            >
-                              {actionLoading === order.id + '-confirm' ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Check className="w-3.5 h-3.5 stroke-[3]" />
-                              )}
-                              <span>Confirmar (iFood)</span>
-                            </button>
+                          <button
+                            onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
+                            disabled={actionLoading === order.id + '-confirm'}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-extrabold py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            title="Confirmar recebimento do pedido no iFood"
+                          >
+                            {actionLoading === order.id + '-confirm' ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Check className="w-4 h-4 stroke-[3]" />
+                            )}
+                            <span>Confirmar (iFood)</span>
+                          </button>
 
-                            <button
-                              onClick={() => handleDispatchOfficial(order.id, order.orderNumber)}
-                              disabled={actionLoading === order.id + '-dispatch'}
-                              className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-amber-400 font-extrabold py-2 px-2 rounded-xl text-[11px] transition duration-200 flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-                              title="Despachar pedido para entrega no iFood"
-                            >
-                              {actionLoading === order.id + '-dispatch' ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                              ) : (
-                                <Bike className="w-3.5 h-3.5" />
-                              )}
-                              <span>Despachar (iFood)</span>
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleDispatchOfficial(order.id, order.orderNumber)}
+                            disabled={actionLoading === order.id + '-dispatch'}
+                            className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-amber-400 font-extrabold py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            title="Despachar pedido para entrega no iFood"
+                          >
+                            {actionLoading === order.id + '-dispatch' ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                            ) : (
+                              <Bike className="w-4 h-4" />
+                            )}
+                            <span>Despachar (iFood)</span>
+                          </button>
 
                           <button
                             onClick={() => handleRequestEntregaFacil(order.id, order.orderNumber)}
                             disabled={isDeliveryLoading}
-                            className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 text-white disabled:text-slate-400 font-black py-2.5 px-3 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 text-white disabled:text-slate-400 font-black py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                           >
                             {isDeliveryLoading ? (
                               <Loader2 className="w-4 h-4 animate-spin text-white" />
@@ -553,21 +565,21 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
                           <button
                             onClick={() => onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress)}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 px-3 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                           >
-                            <Bike className="w-3.5 h-3.5" />
+                            <Bike className="w-4 h-4" />
                             <span>Enviar p/ Motoboy da Casa</span>
                           </button>
 
                           <button
                             onClick={() => handleCancelIFoodOrder(order.id, order.orderNumber)}
                             disabled={actionLoading === order.id + '-cancel'}
-                            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-2 px-3 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                           >
                             {actionLoading === order.id + '-cancel' ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+                              <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
                             ) : (
-                              <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                              <XCircle className="w-4 h-4 text-rose-600" />
                             )}
                             <span>Cancelar Pedido no iFood</span>
                           </button>
