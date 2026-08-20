@@ -97,27 +97,27 @@ async function startServer() {
 
   // iFood Dispatch Proxy Endpoint (Keeps Client Secret secure on server side)
   app.post("/api/ifood/dispatch", async (req, res) => {
-    const { clientId, clientSecret, merchantId, orderNumber, sandbox } = req.body;
+    const { clientId, clientSecret, merchantId, orderId, orderNumber, sandbox } = req.body;
 
-    if (!clientId || !clientSecret || !merchantId || !orderNumber) {
+    if (!clientId || !clientSecret || !merchantId || (!orderNumber && !orderId)) {
       return res.status(400).json({
         success: false,
-        message: "Parâmetros incompletos. Forneça Client ID, Client Secret, Merchant ID e o Número do Pedido."
+        message: "Parâmetros incompletos. Forneça Client ID, Client Secret, Merchant ID e o Identificador do Pedido."
       });
     }
 
     // IF SANDBOX MODE IS ACTIVE, SIMULATE RESPONSE INSTANTLY
     if (sandbox) {
-      console.log(`[iFood Sandbox] Simulando despacho para merchant ${merchantId}, pedido Nº ${orderNumber}`);
+      console.log(`[iFood Sandbox] Simulando despacho para merchant ${merchantId}, pedido Nº ${orderNumber || orderId}`);
       await new Promise((resolve) => setTimeout(resolve, 1200));
       return res.json({
         success: true,
-        message: `[iFood Sandbox Mode] Conexão estabelecida! Token gerado e pedido de teste Nº ${orderNumber} despachado com sucesso via Emulador iFood.`
+        message: `[iFood Sandbox Mode] Conexão estabelecida! Token gerado e pedido de teste Nº ${orderNumber || orderId} despachado com sucesso via Emulador iFood.`
       });
     }
 
     try {
-      console.log(`[iFood] Iniciando despacho do pedido ${orderNumber} para merchant ${merchantId}`);
+      console.log(`[iFood] Iniciando despacho do pedido ${orderNumber || orderId} para merchant ${merchantId}`);
 
       // 1. Obter Token de Acesso OAuth2 do iFood
       const tokenResponse = await fetch("https://merchant-api.ifood.com.br/authentication/v1.0/oauth/token", {
@@ -144,12 +144,12 @@ async function startServer() {
       const tokenData = (await tokenResponse.json()) as { accessToken: string };
       const accessToken = tokenData.accessToken;
 
-      let targetOrderId = orderNumber;
+      let targetOrderId = orderId || orderNumber;
 
-      // 2. Se o número do pedido for curto (ex: 4 dígitos), tentamos buscar o UUID correspondente no iFood.
-      if (orderNumber.length < 30) {
+      // 2. Se o número do pedido for curto (ex: 4 dígitos) e não temos o UUID real, tentamos buscar o UUID correspondente no iFood.
+      if (!orderId && orderNumber && orderNumber.length < 30) {
         console.log(`[iFood] Pedido curto detectado (${orderNumber}). Consultando fila de eventos...`);
-        const pollingResponse = await fetch("https://merchant-api.ifood.com.br/order/v1.0/orders:polling", {
+        const pollingResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:polling", {
           method: "GET",
           headers: {
             "Authorization": `Bearer ${accessToken}`
@@ -344,8 +344,8 @@ async function startServer() {
       console.log(`[iFood Polling] ${events.length} novos eventos recebidos!`);
 
       if (events.length > 0) {
-        // 3. Confirmar recepção (Acknowledgment) dos eventos recebidos com status 200 (exigido pelo Firefly Audit do iFood)
-        const ackBody = events.map(e => ({ id: e.id, status: 200 }));
+        // 3. Confirmar recepção (Acknowledgment) dos eventos recebidos com o formato oficial [{ id }] (exigido pelo Firefly Audit do iFood)
+        const ackBody = events.map(e => ({ id: e.id }));
         const ackResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:acknowledgment", {
           method: "POST",
           headers: {
@@ -365,7 +365,22 @@ async function startServer() {
         const fetchedOrders: any[] = [];
         for (const event of events) {
           if (event.orderId) {
-            // Se o evento for PLACED (novo pedido feito), vamos confirmar automaticamente para passar da Etapa 2!
+            // Fetch order details first
+            let orderDetails: any = null;
+            try {
+              const detailsResponse = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${event.orderId}`, {
+                headers: {
+                  "Authorization": `Bearer ${accessToken}`
+                }
+              });
+              if (detailsResponse.ok) {
+                orderDetails = await detailsResponse.json();
+              }
+            } catch (err) {
+              console.error(`[iFood Polling] Erro ao buscar detalhes do pedido ${event.orderId}:`, err);
+            }
+
+            // Se o evento for PLACED (novo pedido feito)
             if (event.code === "PLACED") {
               try {
                 console.log(`[iFood Polling] Auto-confirmando pedido ${event.orderId}...`);
@@ -408,41 +423,31 @@ async function startServer() {
               }
             }
 
-            try {
-              const detailsResponse = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${event.orderId}`, {
-                headers: {
-                  "Authorization": `Bearer ${accessToken}`
-                }
-              });
-              if (detailsResponse.ok) {
-                const details = await detailsResponse.json() as any;
-                const displayId = details.orderDisplayId || event.orderDisplayId || details.id.substring(0, 4);
-                
-                let itemsList = "Itens do iFood";
-                if (details.items && details.items.length > 0) {
-                  itemsList = details.items.map((i: any) => `${i.quantity}x ${i.name}`).join(", ");
-                }
-
-                let addressStr = "Retirada / Entrega Própria";
-                const addr = details.delivery?.deliveryAddress;
-                if (addr) {
-                  addressStr = `${addr.streetName}, ${addr.streetNumber}${addr.complement ? ' ' + addr.complement : ''} - ${addr.neighborhood}, ${addr.city}`;
-                }
-
-                fetchedOrders.push({
-                  id: details.id,
-                  orderNumber: displayId,
-                  customerName: details.customer?.name || "Cliente iFood",
-                  deliveryAddress: addressStr,
-                  items: itemsList,
-                  totalValue: ((details.payments?.pending || 0) / 100 || 45.00).toFixed(2),
-                  createdAt: "Agora mesmo",
-                  entregaFacilRequested: false,
-                  entregaFacilStatus: null
-                });
+            if (orderDetails) {
+              const displayId = orderDetails.orderDisplayId || event.orderDisplayId || orderDetails.id.substring(0, 4);
+              
+              let itemsList = "Itens do iFood";
+              if (orderDetails.items && orderDetails.items.length > 0) {
+                itemsList = orderDetails.items.map((i: any) => `${i.quantity}x ${i.name}`).join(", ");
               }
-            } catch (err) {
-              console.error(`[iFood Polling] Erro ao buscar detalhes do pedido ${event.orderId}:`, err);
+
+              let addressStr = "Retirada / Entrega Própria";
+              const addr = orderDetails.delivery?.deliveryAddress;
+              if (addr) {
+                addressStr = `${addr.streetName}, ${addr.streetNumber}${addr.complement ? ' ' + addr.complement : ''} - ${addr.neighborhood}, ${addr.city}`;
+              }
+
+              fetchedOrders.push({
+                id: orderDetails.id,
+                orderNumber: displayId,
+                customerName: orderDetails.customer?.name || "Cliente iFood",
+                deliveryAddress: addressStr,
+                items: itemsList,
+                totalValue: ((orderDetails.payments?.pending || 0) / 100 || 45.00).toFixed(2),
+                createdAt: "Agora mesmo",
+                entregaFacilRequested: false,
+                entregaFacilStatus: null
+              });
             }
           }
         }
