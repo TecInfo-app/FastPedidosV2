@@ -387,6 +387,25 @@ async function startServer() {
               } catch (confirmErr) {
                 console.error(`[iFood Polling] Erro ao tentar confirmar pedido ${event.orderId}:`, confirmErr);
               }
+            } else if (event.code === "CANCELLATION_REQUESTED" || event.code === "CANCELLATION_COMMAND") {
+              try {
+                console.log(`[iFood Polling] Auto-aceitando cancelamento para pedido ${event.orderId}...`);
+                const cancelAcceptRes = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${event.orderId}/acceptCancellation`, {
+                  method: "POST",
+                  headers: {
+                    "Authorization": `Bearer ${accessToken}`,
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify({})
+                });
+                if (cancelAcceptRes.ok || cancelAcceptRes.status === 400 || cancelAcceptRes.status === 409) {
+                  console.log(`[iFood Polling] Cancelamento aceito com sucesso para o pedido ${event.orderId}!`);
+                } else {
+                  console.warn(`[iFood Polling] Falha ao auto-aceitar cancelamento para ${event.orderId}:`, await cancelAcceptRes.text());
+                }
+              } catch (cancelErr) {
+                console.error(`[iFood Polling] Erro ao tentar aceitar cancelamento ${event.orderId}:`, cancelErr);
+              }
             }
 
             try {
@@ -551,6 +570,56 @@ async function startServer() {
         success: false,
         message: `Erro de conexão com o servidor iFood ao cancelar: ${error.message}`
       });
+    }
+  });
+
+  // POST accept cancellation of an iFood Order
+  app.post("/api/ifood/orders/:id/acceptCancellation", async (req, res) => {
+    const { id } = req.params;
+    const { clientId, clientSecret, merchantId, sandbox } = req.body;
+
+    if (!clientId || !clientSecret || !merchantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Configuração do iFood incompleta para aceitar cancelamento."
+      });
+    }
+
+    if (sandbox) {
+      return res.json({ success: true, message: "Cancelamento aceito (Sandbox)" });
+    }
+
+    try {
+      const tokenResponse = await fetch("https://merchant-api.ifood.com.br/authentication/v1.0/oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grantType: "client_credentials", clientId, clientSecret }).toString()
+      });
+
+      if (!tokenResponse.ok) {
+        return res.status(401).json({ success: false, message: "Falha na autenticação com o iFood." });
+      }
+
+      const tokenData = await tokenResponse.json() as any;
+      const accessToken = tokenData.accessToken;
+
+      const acceptRes = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${id}/acceptCancellation`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({})
+      });
+
+      if (acceptRes.ok || acceptRes.status === 400 || acceptRes.status === 409) {
+        return res.json({ success: true, message: "Cancelamento aceito com sucesso no iFood!" });
+      } else {
+        const errText = await acceptRes.text();
+        return res.status(acceptRes.status).json({ success: false, message: `Erro ao aceitar cancelamento: ${errText}` });
+      }
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
     }
   });
 
