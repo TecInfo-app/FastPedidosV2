@@ -142,6 +142,8 @@ export default function App() {
           setSelectedStoreId(data.selectedStoreId);
         }
       }
+    }, (err) => {
+      console.warn('UserProfile snapshot listener warning:', err.message);
     });
 
     // Load Stores
@@ -151,6 +153,8 @@ export default function App() {
         list.push(docSnap.data() as Store);
       });
       setStores(list);
+    }, (err) => {
+      console.warn('Stores snapshot listener warning:', err.message);
     });
 
     // Load Motoboys
@@ -160,6 +164,8 @@ export default function App() {
         list.push(docSnap.data() as Motoboy);
       });
       setMotoboys(list);
+    }, (err) => {
+      console.warn('Motoboys snapshot listener warning:', err.message);
     });
 
     // Load Rates
@@ -169,6 +175,8 @@ export default function App() {
         list.push(docSnap.data() as Rate);
       });
       setRates(list);
+    }, (err) => {
+      console.warn('Rates snapshot listener warning:', err.message);
     });
 
     // Load Orders
@@ -179,17 +187,24 @@ export default function App() {
       });
       list.sort((a, b) => b.timestamp - a.timestamp);
       setAllOrders(list);
+    }, (err) => {
+      console.warn('Orders snapshot listener warning:', err.message);
     });
 
-    // Load Daily Reports
-    const unsubscribeReports = onSnapshot(collection(db, 'users', activeOwnerId, 'dailyReports'), (snapshot) => {
-      const list: DailyReport[] = [];
-      snapshot.forEach(docSnap => {
-        list.push(docSnap.data() as DailyReport);
+    // Load Daily Reports (Only for logged-in store owner)
+    let unsubscribeReports = () => {};
+    if (user && user.uid === activeOwnerId) {
+      unsubscribeReports = onSnapshot(collection(db, 'users', activeOwnerId, 'dailyReports'), (snapshot) => {
+        const list: DailyReport[] = [];
+        snapshot.forEach(docSnap => {
+          list.push(docSnap.data() as DailyReport);
+        });
+        list.sort((a, b) => b.timestamp - a.timestamp);
+        setDailyReports(list);
+      }, (err) => {
+        console.warn('DailyReports snapshot listener warning:', err.message);
       });
-      list.sort((a, b) => b.timestamp - a.timestamp);
-      setDailyReports(list);
-    });
+    }
 
     return () => {
       unsubscribeUserProfile();
@@ -199,7 +214,7 @@ export default function App() {
       unsubscribeOrders();
       unsubscribeReports();
     };
-  }, [activeOwnerId]);
+  }, [activeOwnerId, user]);
 
   // Handle Logout
   const handleLogout = async () => {

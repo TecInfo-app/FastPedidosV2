@@ -8,8 +8,9 @@ service cloudfirestore {
 
     // Match users collection
     match /users/{userId} {
-      // The store owner (authenticated on any device) can do everything under their account
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // The store owner can write; anyone can read basic profile info (e.g. selectedStoreId for motoboy portal)
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
 
       match /stores/{storeId} {
         // Shared devices / motoboy view need to read stores
