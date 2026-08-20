@@ -295,6 +295,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     const clientId = localStorage.getItem('ifood_client_id') || '';
     const clientSecret = localStorage.getItem('ifood_client_secret') || '';
     const merchantId = localStorage.getItem('ifood_merchant_id') || '';
+    const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
 
     if (!clientId || !clientSecret || !merchantId) {
       onShowAlert('Configure suas credenciais iFood primeiro no menu de configurações.', 'warning');
@@ -306,7 +307,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber })
+        body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber, sandbox })
       });
       const data = await res.json();
       if (data.success) {
