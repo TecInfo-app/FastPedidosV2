@@ -146,6 +146,9 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   });
 
   const [orderFilter, setOrderFilter] = useState<'all' | 'new' | 'confirmed' | 'dispatched' | 'concluded' | 'cancelled'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [selectedOrderForModal, setSelectedOrderForModal] = useState<IFoodOrder | null>(null);
 
   useEffect(() => {
     localStorage.setItem('ifood_imported_orders', JSON.stringify(importedOrders));
@@ -510,7 +513,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
             </button>
           </form>
 
-          {/* Status Filter Tabs */}
+          {/* Compact Filter and View Mode Header */}
           {displayedOrders.length > 0 && (() => {
             const countNew = displayedOrders.filter(order => {
               const isCancelled = cancelledOrderIds.includes(order.id);
@@ -529,50 +532,91 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
             const countConcluded = displayedOrders.filter(order => concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e').length;
             const countCancelled = displayedOrders.filter(order => cancelledOrderIds.includes(order.id)).length;
 
+            const filterLabels: Record<string, { label: string; color: string }> = {
+              all: { label: 'Todos os Pedidos', color: 'text-slate-900 bg-slate-100' },
+              new: { label: 'Novos / A Confirmar', color: 'text-indigo-700 bg-indigo-50' },
+              confirmed: { label: 'Em Preparo / Confirmados', color: 'text-blue-700 bg-blue-50' },
+              dispatched: { label: 'Enviados / Despachados', color: 'text-amber-700 bg-amber-50' },
+              concluded: { label: 'Concluídos', color: 'text-emerald-700 bg-emerald-50' },
+              cancelled: { label: 'Cancelados', color: 'text-rose-700 bg-rose-50' },
+            };
+
             return (
-              <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-                <button
-                  onClick={() => setOrderFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  <span>Todos</span>
-                  <span className="bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded-full text-[10px]">{displayedOrders.length}</span>
-                </button>
-                <button
-                  onClick={() => setOrderFilter('new')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'new' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-indigo-700'}`}
-                >
-                  <span>Novos / A Confirmar</span>
-                  <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded-full text-[10px]">{countNew}</span>
-                </button>
-                <button
-                  onClick={() => setOrderFilter('confirmed')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'confirmed' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-blue-700'}`}
-                >
-                  <span>Em Preparo / Confirmados</span>
-                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded-full text-[10px]">{countConfirmed}</span>
-                </button>
-                <button
-                  onClick={() => setOrderFilter('dispatched')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'dispatched' ? 'bg-white text-amber-700 shadow-xs' : 'text-slate-600 hover:text-amber-700'}`}
-                >
-                  <span>Enviados / Despachados</span>
-                  <span className="bg-amber-100 text-amber-700 px-1.5 py-0.2 rounded-full text-[10px]">{countDispatched}</span>
-                </button>
-                <button
-                  onClick={() => setOrderFilter('concluded')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'concluded' ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-emerald-700'}`}
-                >
-                  <span>Concluídos</span>
-                  <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded-full text-[10px]">{countConcluded}</span>
-                </button>
-                <button
-                  onClick={() => setOrderFilter('cancelled')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer flex items-center gap-1.5 ${orderFilter === 'cancelled' ? 'bg-white text-rose-700 shadow-xs' : 'text-slate-600 hover:text-rose-700'}`}
-                >
-                  <span>Cancelados</span>
-                  <span className="bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded-full text-[10px]">{countCancelled}</span>
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-100 p-2 rounded-xl relative">
+                {/* Filter Dropdown Toggle */}
+                <div className="relative">
+                  <button
+                    onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+                    className="bg-white hover:bg-slate-50 text-slate-800 font-extrabold px-3.5 py-2 rounded-lg text-xs shadow-xs border border-slate-200 flex items-center gap-2 cursor-pointer transition"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                    <span>Filtro: {filterLabels[orderFilter].label}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+
+                  {filterDropdownOpen && (
+                    <div className="absolute left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-30 animate-in fade-in duration-150">
+                      <button
+                        onClick={() => { setOrderFilter('all'); setFilterDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center justify-between hover:bg-slate-50 ${orderFilter === 'all' ? 'text-rose-600 bg-rose-50/50' : 'text-slate-700'}`}
+                      >
+                        <span>Todos os Pedidos</span>
+                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px]">{displayedOrders.length}</span>
+                      </button>
+                      <button
+                        onClick={() => { setOrderFilter('new'); setFilterDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center justify-between hover:bg-indigo-50/50 ${orderFilter === 'new' ? 'text-indigo-600 bg-indigo-50' : 'text-slate-700'}`}
+                      >
+                        <span>Novos / A Confirmar</span>
+                        <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-[10px]">{countNew}</span>
+                      </button>
+                      <button
+                        onClick={() => { setOrderFilter('confirmed'); setFilterDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center justify-between hover:bg-blue-50/50 ${orderFilter === 'confirmed' ? 'text-blue-600 bg-blue-50' : 'text-slate-700'}`}
+                      >
+                        <span>Em Preparo / Confirmados</span>
+                        <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px]">{countConfirmed}</span>
+                      </button>
+                      <button
+                        onClick={() => { setOrderFilter('dispatched'); setFilterDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center justify-between hover:bg-amber-50/50 ${orderFilter === 'dispatched' ? 'text-amber-600 bg-amber-50' : 'text-slate-700'}`}
+                      >
+                        <span>Enviados / Despachados</span>
+                        <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-[10px]">{countDispatched}</span>
+                      </button>
+                      <button
+                        onClick={() => { setOrderFilter('concluded'); setFilterDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center justify-between hover:bg-emerald-50/50 ${orderFilter === 'concluded' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-700'}`}
+                      >
+                        <span>Concluídos</span>
+                        <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-[10px]">{countConcluded}</span>
+                      </button>
+                      <button
+                        onClick={() => { setOrderFilter('cancelled'); setFilterDropdownOpen(false); }}
+                        className={`w-full text-left px-4 py-2 text-xs font-bold flex items-center justify-between hover:bg-rose-50/50 ${orderFilter === 'cancelled' ? 'text-rose-600 bg-rose-50' : 'text-slate-700'}`}
+                      >
+                        <span>Cancelados</span>
+                        <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[10px]">{countCancelled}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* View Mode Toggle (Cards vs List) */}
+                <div className="flex items-center bg-white rounded-lg p-1 border border-slate-200 shadow-xs">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`px-3 py-1 rounded-md text-xs font-extrabold transition cursor-pointer ${viewMode === 'grid' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Cards
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-3 py-1 rounded-md text-xs font-extrabold transition cursor-pointer ${viewMode === 'list' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Lista
+                  </button>
+                </div>
               </div>
             );
           })()}
@@ -601,217 +645,267 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
               </div>
             ) : filteredOrders.length === 0 ? (
               <div className="text-center py-8 bg-white/40 rounded-2xl border border-rose-100/50">
-                <p className="text-slate-500 text-sm font-semibold">Nenhum pedido encontrado nesta aba.</p>
-                <p className="text-slate-400 text-xs mt-1 font-medium">Tente selecionar outra categoria de status acima.</p>
+                <p className="text-slate-500 text-sm font-semibold">Nenhum pedido encontrado nesta categoria.</p>
+                <p className="text-slate-400 text-xs mt-1 font-medium">Selecione outro filtro no menu acima.</p>
               </div>
-            ) : (
+            ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredOrders.map((order) => {
-                const isDispatchLoading = actionLoading === order.id + '-dispatch';
-                const isDeliveryLoading = actionLoading === order.id + '-delivery';
-                const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
-                const isAlreadyAssigned = !!assignedInHouseOrder;
-                const isAssignedViaIFoodDelivery = isAlreadyAssigned && assignedInHouseOrder.motoboyName.startsWith("iFood:");
+                  const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
+                  const isAlreadyAssigned = !!assignedInHouseOrder;
+                  const isAssignedViaIFoodDelivery = isAlreadyAssigned && assignedInHouseOrder.motoboyName.startsWith("iFood:");
+                  const isCancelled = cancelledOrderIds.includes(order.id);
+                  const isConcluded = concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e';
+                  const isDispatched = dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
+                  const isConfirmed = confirmedOrderIds.includes(order.id);
 
-                return (
-                  <div
-                    key={order.id}
-                    className="bg-white rounded-2xl border border-slate-200 p-4.5 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between"
-                  >
-                    <div>
-                      {/* Top Order Row */}
-                      <div className="flex justify-between items-start mb-3">
-                        <span className="bg-rose-100 text-rose-800 text-xs font-black px-2.5 py-1 rounded-lg">
-                          Pedido #{order.orderNumber}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-bold">{order.createdAt}</span>
-                      </div>
+                  let statusBadge = <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full">Novo</span>;
+                  if (isCancelled) statusBadge = <span className="bg-rose-100 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-full">Cancelado</span>;
+                  else if (isConcluded) statusBadge = <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-full">Concluído</span>;
+                  else if (isDispatched) statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">Enviado</span>;
+                  else if (isConfirmed) statusBadge = <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full">Em Preparo</span>;
 
-                      {/* Customer Info */}
-                      <div className="space-y-1.5 mb-3.5">
-                        <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800">
+                  return (
+                    <div
+                      key={order.id}
+                      onClick={() => setSelectedOrderForModal(order)}
+                      className="bg-white rounded-2xl border border-slate-200 p-4.5 shadow-xs hover:shadow-md transition duration-200 flex flex-col justify-between cursor-pointer group"
+                    >
+                      <div>
+                        <div className="flex justify-between items-center mb-2.5">
+                          <span className="bg-rose-50 text-rose-700 text-xs font-black px-2.5 py-1 rounded-lg border border-rose-100">
+                            #{order.orderNumber}
+                          </span>
+                          {statusBadge}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs font-extrabold text-slate-900 mb-1">
                           <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate">{order.customerName}</span>
+                          <span className="truncate group-hover:text-rose-600 transition">{order.customerName}</span>
                         </div>
-                        <div className="flex items-start gap-2 text-xs font-medium text-slate-500">
-                          <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
-                          <span className="line-clamp-2 leading-tight">{order.deliveryAddress}</span>
-                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium line-clamp-1 mb-2">{order.items}</p>
                       </div>
-
-                      {/* Items details */}
-                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[11px] text-slate-600 font-bold mb-4">
-                        <span className="text-[9px] uppercase tracking-wider text-slate-400 block mb-0.5">Itens do Pedido</span>
-                        <p className="line-clamp-2 leading-relaxed">{order.items}</p>
-                        <span className="block mt-1 text-slate-900 text-xs font-black">Total: R$ {String(order.totalValue || '0').replace('.', ',')}</span>
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <span className="font-extrabold text-slate-900">R$ {String(order.totalValue || '0').replace('.', ',')}</span>
+                        <span className="text-[11px] font-bold text-rose-600 group-hover:underline">Ver Detalhes &rarr;</span>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                <div className="divide-y divide-slate-100">
+                  {filteredOrders.map((order) => {
+                    const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
+                    const isAlreadyAssigned = !!assignedInHouseOrder;
+                    const isCancelled = cancelledOrderIds.includes(order.id);
+                    const isConcluded = concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e';
+                    const isDispatched = dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
+                    const isConfirmed = confirmedOrderIds.includes(order.id);
 
-                    {/* Delivery Status or Action buttons */}
-                    <div className="pt-2 border-t border-slate-100 space-y-2">
-                      {confirmedOrderIds.includes(order.id) && !dispatchedOrderIds.includes(order.id) && !isAssignedViaIFoodDelivery && !isAlreadyAssigned && (
-                        <div className="bg-indigo-50 border border-indigo-200 p-2.5 rounded-md flex items-center gap-2">
-                          <Check className="w-4 h-4 text-indigo-600 stroke-[3] shrink-0" />
+                    let statusBadge = <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Novo</span>;
+                    if (isCancelled) statusBadge = <span className="bg-rose-100 text-rose-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Cancelado</span>;
+                    else if (isConcluded) statusBadge = <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Concluído</span>;
+                    else if (isDispatched) statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Enviado</span>;
+                    else if (isConfirmed) statusBadge = <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Em Preparo</span>;
+
+                    return (
+                      <div
+                        key={order.id}
+                        onClick={() => setSelectedOrderForModal(order)}
+                        className="p-3.5 hover:bg-slate-50 transition flex items-center justify-between cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="bg-rose-50 text-rose-700 font-black text-xs px-2.5 py-1 rounded-lg border border-rose-100">
+                            #{order.orderNumber}
+                          </span>
                           <div>
-                            <span className="text-[10px] uppercase font-black tracking-wider text-indigo-900 block">Status: Confirmado</span>
-                            <span className="text-xs text-indigo-800 font-bold">Pedido confirmado no iFood</span>
+                            <h4 className="text-xs font-black text-slate-900 group-hover:text-rose-600 transition">{order.customerName}</h4>
+                            <p className="text-[11px] text-slate-500 font-medium line-clamp-1">{order.items}</p>
                           </div>
                         </div>
-                      )}
-
-                      {concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e' ? (
-                        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-md space-y-1">
-                          <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Status: Concluído
-                          </span>
-                          <p className="text-xs text-emerald-900 font-extrabold">Pedido Concluído (iFood)</p>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-extrabold text-slate-900">R$ {String(order.totalValue || '0').replace('.', ',')}</span>
+                          {statusBadge}
                         </div>
-                      ) : cancelledOrderIds.includes(order.id) ? (
-                        <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-md space-y-1 text-center">
-                          <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
-                            <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
-                          </span>
-                          <p className="text-[11px] text-rose-800 font-bold">Cancelamento confirmado e registrado na plataforma.</p>
-                        </div>
-                      ) : dispatchedOrderIds.includes(order.id) ? (
-                        <div className="bg-amber-50 border border-amber-200 p-3 rounded-md space-y-1">
-                          <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
-                          </span>
-                          <p className="text-xs text-amber-900 font-extrabold">Status: Despachado com sucesso</p>
-                        </div>
-                      ) : isAssignedViaIFoodDelivery ? (
-                        <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-md space-y-1">
-                          <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
-                          </span>
-                          <p className="text-xs text-slate-800 font-extrabold">
-                            Entregador: {(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}
-                          </p>
-                          <span className="inline-block mt-1 bg-rose-200/50 text-rose-900 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md">
-                            Entrega Fácil Ativa
-                          </span>
-                        </div>
-                      ) : isAlreadyAssigned ? (
-                        <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-md space-y-1">
-                          <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Despachado (Motoboy da Casa)
-                          </span>
-                          <p className="text-xs text-slate-800 font-extrabold">Entregador: {assignedInHouseOrder.motoboyName}</p>
-                          <span className="inline-block mt-1 bg-emerald-200/50 text-emerald-900 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md">
-                            Ativo na Planilha
-                          </span>
-                        </div>
-                      ) : order.entregaFacilRequested && order.entregaFacilStatus ? (
-                        <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-md space-y-1">
-                          <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
-                          </span>
-                          <p className="text-xs text-slate-800 font-extrabold">Entregador: {order.entregaFacilStatus.courierName}</p>
-                          <p className="text-[10px] text-slate-500 font-mono">Contato: {order.entregaFacilStatus.courierPhone}</p>
-                          <span className="inline-block mt-1 bg-rose-200/50 text-rose-900 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md">
-                            {order.entregaFacilStatus.status}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => setModalConfig({
-                              isOpen: true,
-                              title: 'Confirmar Pedido no iFood',
-                              message: `Deseja confirmar o recebimento do pedido Nº ${order.orderNumber} no iFood?`,
-                              onConfirm: () => handleConfirmIFoodOrder(order.id, order.orderNumber)
-                            })}
-                            disabled={actionLoading === order.id + '-confirm'}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-extrabold py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                            title="Confirmar recebimento do pedido no iFood"
-                          >
-                            {actionLoading === order.id + '-confirm' ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Check className="w-4 h-4 stroke-[3]" />
-                            )}
-                            <span>Confirmar (iFood)</span>
-                          </button>
-
-                          <button
-                            onClick={() => setModalConfig({
-                              isOpen: true,
-                              title: 'Despachar Pedido no iFood',
-                              message: `Deseja despachar o pedido Nº ${order.orderNumber} para entrega no iFood?`,
-                              onConfirm: () => handleDispatchOfficial(order.id, order.orderNumber)
-                            })}
-                            disabled={actionLoading === order.id + '-dispatch'}
-                            className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-amber-400 font-extrabold py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                            title="Despachar pedido para entrega no iFood"
-                          >
-                            {actionLoading === order.id + '-dispatch' ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                            ) : (
-                              <Bike className="w-4 h-4" />
-                            )}
-                            <span>Despachar (iFood)</span>
-                          </button>
-
-                          <button
-                            onClick={() => setModalConfig({
-                              isOpen: true,
-                              title: 'Chamar Motoboy iFood (Entrega Fácil)',
-                              message: `Deseja solicitar o motoboy do iFood (Entrega Fácil) para o pedido Nº ${order.orderNumber}?`,
-                              onConfirm: () => handleRequestEntregaFacil(order.id, order.orderNumber)
-                            })}
-                            disabled={isDeliveryLoading}
-                            className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 text-white disabled:text-slate-400 font-black py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                          >
-                            {isDeliveryLoading ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-white" />
-                            ) : (
-                              <Bike className="w-4 h-4 text-white" />
-                            )}
-                            <span>Chamar Motoboy iFood (Entrega Fácil)</span>
-                          </button>
-
-                          <button
-                            onClick={() => setModalConfig({
-                              isOpen: true,
-                              title: 'Enviar para Motoboy da Casa',
-                              message: `Deseja enviar o pedido Nº ${order.orderNumber} (${order.customerName}) para o Motoboy da Casa?`,
-                              onConfirm: () => onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress)
-                            })}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                          >
-                            <Bike className="w-4 h-4" />
-                            <span>Enviar p/ Motoboy da Casa</span>
-                          </button>
-
-                          <button
-                            onClick={() => setModalConfig({
-                              isOpen: true,
-                              title: 'Cancelar Pedido no iFood',
-                              message: `Tem certeza que deseja cancelar o pedido Nº ${order.orderNumber} no iFood?`,
-                              onConfirm: () => handleCancelIFoodOrder(order.id, order.orderNumber)
-                            })}
-                            disabled={actionLoading === order.id + '-cancel'}
-                            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                          >
-                            {actionLoading === order.id + '-cancel' ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-rose-600" />
-                            )}
-                            <span>Cancelar Pedido no iFood</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
       </div>
     )}
+
+      {/* Order Details Modal */}
+      {selectedOrderForModal && (() => {
+        const order = selectedOrderForModal;
+        const isDispatchLoading = actionLoading === order.id + '-dispatch';
+        const isDeliveryLoading = actionLoading === order.id + '-delivery';
+        const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
+        const isAlreadyAssigned = !!assignedInHouseOrder;
+        const isAssignedViaIFoodDelivery = isAlreadyAssigned && assignedInHouseOrder.motoboyName.startsWith("iFood:");
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Header */}
+              <div className="bg-slate-900 text-white p-4.5 flex justify-between items-center">
+                <div className="flex items-center gap-2.5">
+                  <span className="bg-rose-600 text-white text-xs font-black px-3 py-1 rounded-lg">
+                    Pedido #{order.orderNumber}
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-extrabold">{order.customerName}</h3>
+                    <span className="text-[10px] text-slate-400 font-medium">Recebido às {order.createdAt}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedOrderForModal(null)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 p-1.5 rounded-lg transition cursor-pointer"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 space-y-4 overflow-y-auto">
+                <div className="space-y-1.5 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                  <div className="flex items-start gap-2 text-xs font-medium text-slate-700">
+                    <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                    <span>{order.deliveryAddress}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">Itens e Valores</span>
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs text-slate-800 font-bold space-y-2">
+                    <p className="leading-relaxed">{order.items}</p>
+                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-black text-slate-900">
+                      <span>Total do Pedido:</span>
+                      <span className="text-rose-600">R$ {String(order.totalValue || '0').replace('.', ',')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions & Status */}
+                <div className="pt-2 border-t border-slate-100 space-y-2">
+                  <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">Ações e Status do Pedido</span>
+
+                  {confirmedOrderIds.includes(order.id) && !dispatchedOrderIds.includes(order.id) && !isAssignedViaIFoodDelivery && !isAlreadyAssigned && (
+                    <div className="bg-indigo-50 border border-indigo-200 p-2.5 rounded-xl flex items-center gap-2">
+                      <Check className="w-4 h-4 text-indigo-600 stroke-[3] shrink-0" />
+                      <div>
+                        <span className="text-[10px] uppercase font-black tracking-wider text-indigo-900 block">Status: Confirmado</span>
+                        <span className="text-xs text-indigo-800 font-bold">Pedido confirmado no iFood</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e' ? (
+                    <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl space-y-1">
+                      <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Status: Concluído
+                      </span>
+                      <p className="text-xs text-emerald-900 font-extrabold">Pedido Concluído (iFood)</p>
+                    </div>
+                  ) : cancelledOrderIds.includes(order.id) ? (
+                    <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-xl space-y-1 text-center">
+                      <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
+                        <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
+                      </span>
+                      <p className="text-[11px] text-rose-800 font-bold">Cancelamento confirmado e registrado na plataforma.</p>
+                    </div>
+                  ) : dispatchedOrderIds.includes(order.id) ? (
+                    <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-1">
+                      <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
+                      </span>
+                      <p className="text-xs text-amber-900 font-extrabold">Status: Despachado com sucesso</p>
+                    </div>
+                  ) : isAssignedViaIFoodDelivery ? (
+                    <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-xl space-y-1">
+                      <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
+                      </span>
+                      <p className="text-xs text-slate-800 font-extrabold">
+                        Entregador: {(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}
+                      </p>
+                    </div>
+                  ) : isAlreadyAssigned ? (
+                    <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-1">
+                      <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Despachado (Motoboy da Casa)
+                      </span>
+                      <p className="text-xs text-slate-800 font-extrabold">Entregador: {assignedInHouseOrder.motoboyName}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 pt-1">
+                      <button
+                        onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
+                        disabled={actionLoading === order.id + '-confirm'}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <Check className="w-4 h-4 stroke-[3]" />
+                        <span>Confirmar Pedido (iFood)</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDispatchOfficial(order.id, order.orderNumber)}
+                        disabled={actionLoading === order.id + '-dispatch'}
+                        className="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-extrabold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <Bike className="w-4 h-4" />
+                        <span>Despachar Pedido (iFood)</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleRequestEntregaFacil(order.id, order.orderNumber)}
+                        disabled={isDeliveryLoading}
+                        className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <Bike className="w-4 h-4 text-white" />
+                        <span>Chamar Motoboy iFood (Entrega Fácil)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress);
+                          setSelectedOrderForModal(null);
+                        }}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                      >
+                        <Bike className="w-4 h-4" />
+                        <span>Enviar p/ Motoboy da Casa</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleCancelIFoodOrder(order.id, order.orderNumber)}
+                        disabled={actionLoading === order.id + '-cancel'}
+                        className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <XCircle className="w-4 h-4 text-rose-600" />
+                        <span>Cancelar Pedido no iFood</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end">
+                <button
+                  onClick={() => setSelectedOrderForModal(null)}
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-5 py-2 rounded-xl text-xs transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Confirmation Modal */}
       {modalConfig.isOpen && (
