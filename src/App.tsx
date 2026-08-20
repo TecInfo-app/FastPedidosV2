@@ -141,6 +141,21 @@ export default function App() {
         if (data.selectedStoreId) {
           setSelectedStoreId(data.selectedStoreId);
         }
+        if (data.ifoodClientId !== undefined) {
+          localStorage.setItem('ifood_client_id', data.ifoodClientId || '');
+        }
+        if (data.ifoodClientSecret !== undefined) {
+          localStorage.setItem('ifood_client_secret', data.ifoodClientSecret || '');
+        }
+        if (data.ifoodMerchantId !== undefined) {
+          localStorage.setItem('ifood_merchant_id', data.ifoodMerchantId || '');
+        }
+        if (data.ifoodEnabled !== undefined) {
+          localStorage.setItem('ifood_enabled', String(data.ifoodEnabled));
+        }
+        if (data.ifoodSandbox !== undefined) {
+          localStorage.setItem('ifood_sandbox', String(data.ifoodSandbox));
+        }
       }
     }, (err) => {
       console.warn('UserProfile snapshot listener warning:', err.message);

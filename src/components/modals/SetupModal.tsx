@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Store, Motoboy, Rate } from '../../types';
 import { X, Plus, Trash2, Check, AlertCircle, ShoppingBag, Edit2 } from 'lucide-react';
+import { auth, db } from '../../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface SetupModalProps {
   isOpen: boolean;
@@ -102,13 +104,28 @@ export const SetupModal: React.FC<SetupModalProps> = ({
     setRateInput('');
   };
 
-  const handleIFoodSubmit = (e: React.FormEvent) => {
+  const handleIFoodSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     localStorage.setItem('ifood_enabled', String(ifoodEnabled));
     localStorage.setItem('ifood_client_id', ifoodClientId.trim());
     localStorage.setItem('ifood_client_secret', ifoodClientSecret.trim());
     localStorage.setItem('ifood_merchant_id', ifoodMerchantId.trim());
     localStorage.setItem('ifood_sandbox', String(ifoodSandbox));
+
+    if (auth.currentUser) {
+      try {
+        await setDoc(doc(db, 'users', auth.currentUser.uid), {
+          ifoodEnabled,
+          ifoodClientId: ifoodClientId.trim(),
+          ifoodClientSecret: ifoodClientSecret.trim(),
+          ifoodMerchantId: ifoodMerchantId.trim(),
+          ifoodSandbox
+        }, { merge: true });
+      } catch (err) {
+        console.error('Error saving iFood settings to Firestore:', err);
+      }
+    }
+
     setIfoodSaveSuccess(true);
     setTimeout(() => {
       setIfoodSaveSuccess(false);

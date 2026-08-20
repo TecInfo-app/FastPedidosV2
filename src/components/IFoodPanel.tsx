@@ -37,9 +37,6 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const [iFoodOrders, setIFoodOrders] = useState<IFoodOrder[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // orderId being dispatched or requesting rider
-  const [manualOrderId, setManualOrderId] = useState('');
-  const [importLoading, setImportLoading] = useState(false);
-
   const [isSandbox, setIsSandbox] = useState(() => localStorage.getItem('ifood_sandbox') === 'true');
 
   useEffect(() => {
@@ -179,64 +176,6 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       displayedOrders.push(o);
     }
   }
-
-  const handleImportOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!manualOrderId.trim()) return;
-
-    const clientId = localStorage.getItem('ifood_client_id') || '';
-    const clientSecret = localStorage.getItem('ifood_client_secret') || '';
-    const merchantId = localStorage.getItem('ifood_merchant_id') || '';
-    const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
-
-    if (!clientId || !clientSecret || !merchantId) {
-      onShowAlert('Por favor, configure suas credenciais do iFood primeiro no painel de configurações.', 'warning');
-      return;
-    }
-
-    setImportLoading(true);
-    try {
-      const response = await fetch(`${API_BASE}/api/ifood/dispatch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId,
-          clientSecret,
-          merchantId,
-          orderNumber: manualOrderId.trim(),
-          sandbox: sandbox
-        })
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        onShowAlert(data.message || 'Pedido localizado e integrado com sucesso!', 'success');
-        
-        // Add the real mock or fetched sandbox order to the list so they can play with it
-        const newOrder: IFoodOrder = {
-          id: manualOrderId.trim(),
-          orderNumber: manualOrderId.trim().substring(0, 4).toUpperCase(),
-          customerName: data.customerName || 'Cliente Simulado iFood',
-          deliveryAddress: data.deliveryAddress || 'Rua Heitor Penteado, 1420 - Sumarezinho, São Paulo',
-          items: '1x Combo Hambúrguer de Teste + Refrigerante',
-          totalValue: '45.00',
-          createdAt: 'Agora mesmo',
-          entregaFacilRequested: false,
-          entregaFacilStatus: null
-        };
-        
-        setImportedOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
-        setManualOrderId('');
-      } else {
-        onShowAlert(data.message || 'Falha ao buscar o pedido no iFood. Verifique o ID do pedido e as credenciais.', 'error');
-      }
-    } catch (err) {
-      console.error(err);
-      onShowAlert('Erro ao conectar com o servidor para processar pedido.', 'error');
-    } finally {
-      setImportLoading(false);
-    }
-  };
 
   const fetchIFoodOrders = async (silent = false) => {
     const clientId = localStorage.getItem('ifood_client_id') || '';
@@ -460,58 +399,21 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       {/* Expanded iFood Orders List Container */}
       {isExpanded && (
         <div className="mt-3 bg-white border border-rose-200/80 rounded-3xl p-5 shadow-lg shadow-rose-100 animate-in slide-in-from-top-3 duration-200 space-y-4">
-          <div className={`flex justify-between items-center p-3 rounded-2xl border ${!isSandbox ? 'bg-emerald-50/80 border-emerald-200' : 'bg-rose-50/70 border-rose-100'}`}>
-            <span className={`text-xs font-black flex items-center gap-1.5 ${!isSandbox ? 'text-emerald-950' : 'text-rose-950'}`}>
-              {!isSandbox ? (
-                <>
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[3]" />
-                  <span>Conexão Oficial iFood (Homologação & Produção)</span>
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Modo Simulação / Sandbox Ativo</span>
-                </>
-              )}
+          <div className="flex justify-between items-center p-3 rounded-2xl border bg-emerald-50/80 border-emerald-200">
+            <span className="text-xs font-black flex items-center gap-1.5 text-emerald-950">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[3]" />
+              <span>{isSandbox ? 'Conectado (Sandbox)' : 'Conectado'}</span>
             </span>
             <button
               onClick={() => fetchIFoodOrders(false)}
               disabled={loading}
-              className={`p-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-bold ${!isSandbox ? 'text-emerald-800 hover:bg-emerald-100/60' : 'text-rose-700 hover:bg-rose-100/50'}`}
+              className="p-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-bold text-emerald-800 hover:bg-emerald-100/60"
               title="Atualizar Lista"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>Sincronizar</span>
             </button>
           </div>
-
-          {/* Form to paste the Simulator Order ID and see it instantly! */}
-          <form onSubmit={handleImportOrder} className="flex gap-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 items-end">
-            <div className="flex-1 space-y-1">
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
-                Importar Pedido Gerado no Portal do iFood (Colar ID do pedido)
-              </label>
-              <input
-                type="text"
-                value={manualOrderId}
-                onChange={(e) => setManualOrderId(e.target.value)}
-                placeholder="Ex: 901d268e-0247-4b27-a6e3-838768266df7"
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs font-mono font-medium focus:outline-none focus:border-rose-500 transition"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={importLoading || !manualOrderId.trim()}
-              className="bg-slate-900 hover:bg-rose-600 disabled:bg-slate-200 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs transition duration-200 cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm"
-            >
-              {importLoading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              )}
-              <span>Importar Pedido</span>
-            </button>
-          </form>
 
           {/* Compact Filter and View Mode Header */}
           {displayedOrders.length > 0 && (() => {
