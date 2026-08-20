@@ -40,10 +40,28 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   const [manualOrderId, setManualOrderId] = useState('');
   const [importLoading, setImportLoading] = useState(false);
 
-  // Persistent list for manually imported orders so they are never lost on synchronize!
+  const [isSandbox, setIsSandbox] = useState(() => localStorage.getItem('ifood_sandbox') === 'true');
+
+  useEffect(() => {
+    const checkSandbox = () => {
+      setIsSandbox(localStorage.getItem('ifood_sandbox') === 'true');
+    };
+    checkSandbox();
+    window.addEventListener('storage', checkSandbox);
+    return () => window.removeEventListener('storage', checkSandbox);
+  }, [isExpanded]);
   const [importedOrders, setImportedOrders] = useState<IFoodOrder[]>(() => {
     try {
       const saved = localStorage.getItem('ifood_imported_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [dismissedOrderIds, setDismissedOrderIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ifood_dismissed_orders');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -149,7 +167,8 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       const res = await fetch(`${API_BASE}/api/ifood/orders?clientId=${encodeURIComponent(clientId)}&clientSecret=${encodeURIComponent(clientSecret)}&merchantId=${encodeURIComponent(merchantId)}&sandbox=${sandbox}`);
       if (res.ok) {
         const data = await res.json();
-        setIFoodOrders(data);
+        const filtered = Array.isArray(data) ? data.filter((o: IFoodOrder) => !dismissedOrderIds.includes(o.id)) : [];
+        setIFoodOrders(filtered);
       } else {
         const errData = await res.json().catch(() => ({}));
         if (!silent) {
@@ -224,6 +243,38 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     }
   };
 
+  const handleConfirmIFoodOrder = async (orderId: string, orderNumber: string) => {
+    setActionLoading(orderId + '-confirm');
+    const clientId = localStorage.getItem('ifood_client_id') || '';
+    const clientSecret = localStorage.getItem('ifood_client_secret') || '';
+    const merchantId = localStorage.getItem('ifood_merchant_id') || '';
+
+    if (!clientId || !clientSecret || !merchantId) {
+      onShowAlert('Configure suas credenciais iFood primeiro no menu de configurações.', 'warning');
+      setActionLoading(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber })
+      });
+      const data = await res.json();
+      if (data.success) {
+        onShowAlert(`Pedido Nº ${orderNumber} confirmado com sucesso no iFood!`, 'success');
+      } else {
+        onShowAlert(`[iFood] ${data.message}`, 'info');
+      }
+    } catch (err) {
+      console.error(err);
+      onShowAlert('Erro ao confirmar pedido no iFood.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleDispatchOfficial = async (orderId: string, orderNumber: string) => {
     setActionLoading(orderId + '-dispatch');
     const clientId = localStorage.getItem('ifood_client_id') || '';
@@ -241,7 +292,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       const res = await fetch(`${API_BASE}/api/ifood/dispatch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber, sandbox })
+        body: JSON.stringify({ clientId, clientSecret, merchantId, orderId, orderNumber, sandbox })
       });
       const data = await res.json();
       if (data.success) {
@@ -278,6 +329,9 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       const data = await res.json();
       if (data.success) {
         onShowAlert(`Pedido Nº ${orderNumber} cancelado com sucesso no iFood!`, 'success');
+        const updatedDismissed = [...dismissedOrderIds, orderId];
+        setDismissedOrderIds(updatedDismissed);
+        localStorage.setItem('ifood_dismissed_orders', JSON.stringify(updatedDismissed));
         setIFoodOrders(prev => prev.filter(o => o.id !== orderId));
         setImportedOrders(prev => prev.filter(o => o.id !== orderId));
       } else {
@@ -311,15 +365,24 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       {/* Expanded iFood Orders List Container */}
       {isExpanded && (
         <div className="mt-3 bg-white border border-rose-200/80 rounded-3xl p-5 shadow-lg shadow-rose-100 animate-in slide-in-from-top-3 duration-200 space-y-4">
-          <div className="flex justify-between items-center bg-rose-50/70 p-3 rounded-2xl border border-rose-100">
-            <span className="text-xs font-black text-rose-950 flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              Modo de Simulação / Sandbox Ativo com o Portal do Desenvolvedor iFood
+          <div className={`flex justify-between items-center p-3 rounded-2xl border ${!isSandbox ? 'bg-emerald-50/80 border-emerald-200' : 'bg-rose-50/70 border-rose-100'}`}>
+            <span className={`text-xs font-black flex items-center gap-1.5 ${!isSandbox ? 'text-emerald-950' : 'text-rose-950'}`}>
+              {!isSandbox ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 stroke-[3]" />
+                  <span>Conexão Oficial iFood (Homologação & Produção)</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Modo Simulação / Sandbox Ativo</span>
+                </>
+              )}
             </span>
             <button
-              onClick={fetchIFoodOrders}
+              onClick={() => fetchIFoodOrders(false)}
               disabled={loading}
-              className="p-1.5 text-rose-700 hover:text-rose-900 hover:bg-rose-100/50 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-bold"
+              className={`p-1.5 rounded-xl transition cursor-pointer flex items-center gap-1 text-xs font-bold ${!isSandbox ? 'text-emerald-800 hover:bg-emerald-100/60' : 'text-rose-700 hover:bg-rose-100/50'}`}
               title="Atualizar Lista"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -445,15 +508,45 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                         </div>
                       ) : (
                         <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
+                              disabled={actionLoading === order.id + '-confirm'}
+                              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-extrabold py-2 px-2 rounded-xl text-[11px] transition duration-200 flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                              title="Confirmar recebimento do pedido no iFood"
+                            >
+                              {actionLoading === order.id + '-confirm' ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              )}
+                              <span>Confirmar (iFood)</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDispatchOfficial(order.id, order.orderNumber)}
+                              disabled={actionLoading === order.id + '-dispatch'}
+                              className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-amber-400 font-extrabold py-2 px-2 rounded-xl text-[11px] transition duration-200 flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                              title="Despachar pedido para entrega no iFood"
+                            >
+                              {actionLoading === order.id + '-dispatch' ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                              ) : (
+                                <Bike className="w-3.5 h-3.5" />
+                              )}
+                              <span>Despachar (iFood)</span>
+                            </button>
+                          </div>
+
                           <button
                             onClick={() => handleRequestEntregaFacil(order.id, order.orderNumber)}
                             disabled={isDeliveryLoading}
-                            className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 text-white hover:text-amber-400 disabled:text-slate-400 font-black py-2.5 px-3 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 text-white disabled:text-slate-400 font-black py-2.5 px-3 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                           >
                             {isDeliveryLoading ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                              <Loader2 className="w-4 h-4 animate-spin text-white" />
                             ) : (
-                              <Bike className="w-4 h-4 text-amber-400" />
+                              <Bike className="w-4 h-4 text-white" />
                             )}
                             <span>Chamar Motoboy iFood (Entrega Fácil)</span>
                           </button>
