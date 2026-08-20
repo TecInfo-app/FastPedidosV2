@@ -262,8 +262,8 @@ async function startServer() {
       console.log(`[iFood Polling] ${events.length} novos eventos recebidos!`);
 
       if (events.length > 0) {
-        // 3. Confirmar recepção (Acknowledgment) dos eventos recebidos
-        const ackBody = events.map(e => ({ id: e.id }));
+        // 3. Confirmar recepção (Acknowledgment) dos eventos recebidos com status 200 (exigido pelo Firefly Audit do iFood)
+        const ackBody = events.map(e => ({ id: e.id, status: 200 }));
         const ackResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:acknowledgment", {
           method: "POST",
           headers: {
@@ -402,6 +402,7 @@ async function startServer() {
       const accessToken = tokenData.accessToken;
 
       // 2. OBRIGATÓRIO PARA HOMOLOGAÇÃO: Consultar os motivos de cancelamento primeiro!
+      let cancellationCode = "501";
       console.log(`[iFood Cancel] Consultando motivos de cancelamento para o pedido ${id}...`);
       try {
         const reasonsResponse = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${id}/cancellationReasons`, {
@@ -411,8 +412,11 @@ async function startServer() {
           }
         });
         if (reasonsResponse.ok) {
-          const reasonsData = await reasonsResponse.json();
+          const reasonsData = await reasonsResponse.json() as any[];
           console.log(`[iFood Cancel] Motivos consultados com sucesso:`, JSON.stringify(reasonsData).substring(0, 150));
+          if (Array.isArray(reasonsData) && reasonsData.length > 0) {
+            cancellationCode = reasonsData[0].id || reasonsData[0].code || reasonsData[0].reason || "501";
+          }
         } else {
           console.warn(`[iFood Cancel] Aviso: Não foi possível obter motivos de cancelamento do iFood:`, await reasonsResponse.text());
         }
@@ -420,7 +424,7 @@ async function startServer() {
         console.warn(`[iFood Cancel] Falha ao tentar obter motivos de cancelamento (prosseguindo de qualquer forma):`, reasonErr);
       }
 
-      // 3. Enviar a solicitação de cancelamento oficial do iFood
+      // 3. Enviar a solicitação de cancelamento oficial do iFood no formato exigido ({ reason: cancellationCode })
       const cancelResponse = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${id}/requestCancellation`, {
         method: "POST",
         headers: {
@@ -428,8 +432,7 @@ async function startServer() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          cancellationCode: "501", // Problema Operacional / Erro do Sistema
-          reason: "Cancelado via sistema de homologação Fast Pedidos"
+          reason: cancellationCode
         })
       });
 
