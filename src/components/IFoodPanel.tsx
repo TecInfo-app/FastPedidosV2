@@ -77,9 +77,47 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     }
   });
 
+  const [confirmedOrderIds, setConfirmedOrderIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ifood_confirmed_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [dispatchedOrderIds, setDispatchedOrderIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ifood_dispatched_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
   useEffect(() => {
     localStorage.setItem('ifood_imported_orders', JSON.stringify(importedOrders));
   }, [importedOrders]);
+
+  useEffect(() => {
+    localStorage.setItem('ifood_confirmed_orders', JSON.stringify(confirmedOrderIds));
+  }, [confirmedOrderIds]);
+
+  useEffect(() => {
+    localStorage.setItem('ifood_dispatched_orders', JSON.stringify(dispatchedOrderIds));
+  }, [dispatchedOrderIds]);
 
   // Merge synchronized and imported lists, prioritizing imported ones and ensuring strict uniqueness of ID
   const displayedOrders: IFoodOrder[] = [];
@@ -273,6 +311,9 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       const data = await res.json();
       if (data.success) {
         onShowAlert(`Pedido Nº ${orderNumber} confirmado com sucesso no iFood!`, 'success');
+        const updatedConfirmed = [...confirmedOrderIds, orderId];
+        setConfirmedOrderIds(updatedConfirmed);
+        localStorage.setItem('ifood_confirmed_orders', JSON.stringify(updatedConfirmed));
       } else {
         onShowAlert(`[iFood] ${data.message}`, 'info');
       }
@@ -306,6 +347,9 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       const data = await res.json();
       if (data.success) {
         onShowAlert(`Pedido Nº ${orderNumber} despachado com sucesso no painel oficial do iFood!`, 'success');
+        const updatedDispatched = [...dispatchedOrderIds, orderId];
+        setDispatchedOrderIds(updatedDispatched);
+        localStorage.setItem('ifood_dispatched_orders', JSON.stringify(updatedDispatched));
       } else {
         onShowAlert(`[iFood] ${data.message}`, 'error');
       }
@@ -479,16 +523,33 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                     </div>
 
                     {/* Delivery Status or Action buttons */}
-                    <div className="pt-2 border-t border-slate-100">
+                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                      {confirmedOrderIds.includes(order.id) && !dispatchedOrderIds.includes(order.id) && !isAssignedViaIFoodDelivery && !isAlreadyAssigned && (
+                        <div className="bg-indigo-50 border border-indigo-200 p-2.5 rounded-md flex items-center gap-2">
+                          <Check className="w-4 h-4 text-indigo-600 stroke-[3] shrink-0" />
+                          <div>
+                            <span className="text-[10px] uppercase font-black tracking-wider text-indigo-900 block">Status: Confirmado</span>
+                            <span className="text-xs text-indigo-800 font-bold">Pedido confirmado no iFood</span>
+                          </div>
+                        </div>
+                      )}
+
                       {cancelledOrderIds.includes(order.id) ? (
-                        <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-xl space-y-1 text-center">
+                        <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-md space-y-1 text-center">
                           <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
                             <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
                           </span>
                           <p className="text-[11px] text-rose-800 font-bold">Cancelamento confirmado e registrado na plataforma.</p>
                         </div>
+                      ) : dispatchedOrderIds.includes(order.id) ? (
+                        <div className="bg-amber-50 border border-amber-200 p-3 rounded-md space-y-1">
+                          <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
+                          </span>
+                          <p className="text-xs text-amber-900 font-extrabold">Status: Despachado com sucesso</p>
+                        </div>
                       ) : isAssignedViaIFoodDelivery ? (
-                        <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-xl space-y-1">
+                        <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-md space-y-1">
                           <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
                             <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
                           </span>
@@ -500,7 +561,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                           </span>
                         </div>
                       ) : isAlreadyAssigned ? (
-                        <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-1">
+                        <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-md space-y-1">
                           <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
                             <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Despachado (Motoboy da Casa)
                           </span>
@@ -510,7 +571,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                           </span>
                         </div>
                       ) : order.entregaFacilRequested && order.entregaFacilStatus ? (
-                        <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-xl space-y-1">
+                        <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-md space-y-1">
                           <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
                             <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
                           </span>
@@ -523,9 +584,14 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                       ) : (
                         <div className="space-y-2">
                           <button
-                            onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
+                            onClick={() => setModalConfig({
+                              isOpen: true,
+                              title: 'Confirmar Pedido no iFood',
+                              message: `Deseja confirmar o recebimento do pedido Nº ${order.orderNumber} no iFood?`,
+                              onConfirm: () => handleConfirmIFoodOrder(order.id, order.orderNumber)
+                            })}
                             disabled={actionLoading === order.id + '-confirm'}
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-extrabold py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-extrabold py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                             title="Confirmar recebimento do pedido no iFood"
                           >
                             {actionLoading === order.id + '-confirm' ? (
@@ -537,9 +603,14 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                           </button>
 
                           <button
-                            onClick={() => handleDispatchOfficial(order.id, order.orderNumber)}
+                            onClick={() => setModalConfig({
+                              isOpen: true,
+                              title: 'Despachar Pedido no iFood',
+                              message: `Deseja despachar o pedido Nº ${order.orderNumber} para entrega no iFood?`,
+                              onConfirm: () => handleDispatchOfficial(order.id, order.orderNumber)
+                            })}
                             disabled={actionLoading === order.id + '-dispatch'}
-                            className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-amber-400 font-extrabold py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-amber-400 font-extrabold py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                             title="Despachar pedido para entrega no iFood"
                           >
                             {actionLoading === order.id + '-dispatch' ? (
@@ -551,9 +622,14 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                           </button>
 
                           <button
-                            onClick={() => handleRequestEntregaFacil(order.id, order.orderNumber)}
+                            onClick={() => setModalConfig({
+                              isOpen: true,
+                              title: 'Chamar Motoboy iFood (Entrega Fácil)',
+                              message: `Deseja solicitar o motoboy do iFood (Entrega Fácil) para o pedido Nº ${order.orderNumber}?`,
+                              onConfirm: () => handleRequestEntregaFacil(order.id, order.orderNumber)
+                            })}
                             disabled={isDeliveryLoading}
-                            className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 text-white disabled:text-slate-400 font-black py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-slate-200 text-white disabled:text-slate-400 font-black py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                           >
                             {isDeliveryLoading ? (
                               <Loader2 className="w-4 h-4 animate-spin text-white" />
@@ -564,17 +640,27 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                           </button>
 
                           <button
-                            onClick={() => onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress)}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                            onClick={() => setModalConfig({
+                              isOpen: true,
+                              title: 'Enviar para Motoboy da Casa',
+                              message: `Deseja enviar o pedido Nº ${order.orderNumber} (${order.customerName}) para o Motoboy da Casa?`,
+                              onConfirm: () => onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress)
+                            })}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                           >
                             <Bike className="w-4 h-4" />
                             <span>Enviar p/ Motoboy da Casa</span>
                           </button>
 
                           <button
-                            onClick={() => handleCancelIFoodOrder(order.id, order.orderNumber)}
+                            onClick={() => setModalConfig({
+                              isOpen: true,
+                              title: 'Cancelar Pedido no iFood',
+                              message: `Tem certeza que deseja cancelar o pedido Nº ${order.orderNumber} no iFood?`,
+                              onConfirm: () => handleCancelIFoodOrder(order.id, order.orderNumber)
+                            })}
                             disabled={actionLoading === order.id + '-cancel'}
-                            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-3 px-4 rounded-xl text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-3 px-4 rounded-md text-xs transition duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                           >
                             {actionLoading === order.id + '-cancel' ? (
                               <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
@@ -591,6 +677,35 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {modalConfig.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-lg border border-slate-200 p-6 max-w-md w-full shadow-2xl space-y-4">
+            <h3 className="text-base font-extrabold text-slate-900">{modalConfig.title}</h3>
+            <p className="text-sm text-slate-600 font-medium">{modalConfig.message}</p>
+            <div className="flex justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-md text-xs transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  modalConfig.onConfirm();
+                  setModalConfig(prev => ({ ...prev, isOpen: false }));
+                }}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold px-5 py-2 rounded-md text-xs transition cursor-pointer shadow-sm"
+              >
+                Confirmar / OK
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
