@@ -600,7 +600,8 @@ export default function App() {
           'info'
         );
         
-        fetch('/api/ifood/dispatch', {
+        const apiBase = (import.meta.env.VITE_API_URL || 'https://ifood-integracao.iranildo-jobs.workers.dev').replace(/\/$/, '');
+        fetch(`${apiBase}/api/ifood/dispatch`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

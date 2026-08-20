@@ -31,7 +31,8 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   onAssignToInHouseMotoboy,
   onAddEntregaFacilOrder,
 }) => {
-  const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+  const DEFAULT_WORKER_URL = 'https://ifood-integracao.iranildo-jobs.workers.dev';
+  const API_BASE = (import.meta.env.VITE_API_URL || DEFAULT_WORKER_URL).replace(/\/$/, '');
   const [isExpanded, setIsExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [iFoodOrders, setIFoodOrders] = useState<IFoodOrder[]>([]);
