@@ -114,7 +114,7 @@ export const MotoboyCard: React.FC<MotoboyCardProps> = ({
       </div>
 
       {/* Orders List Container */}
-      <div className="flex-grow overflow-y-auto -mx-1 px-1 pr-1.5 space-y-3 custom-scrollbar">
+      <div className="flex-grow overflow-y-auto -mx-1 px-1 pr-1.5 space-y-3 custom-scrollbar max-h-[280px]">
         {orders.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-400">
             <Bike className="w-10 h-10 stroke-[1.2] mb-2 text-slate-300" />
