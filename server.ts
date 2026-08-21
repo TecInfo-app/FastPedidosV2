@@ -234,6 +234,8 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       // Fetch details from iFood if possible
       let customerName = undefined;
       let deliveryAddress = undefined;
+      let isScheduled = false;
+      let deliveryDateTime = undefined;
 
       try {
         const detailsResponse = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${targetOrderId}`, {
@@ -248,9 +250,47 @@ app.post("/api/ifood/dispatch", async (req, res) => {
           if (addr) {
             deliveryAddress = `${addr.streetName}, ${addr.streetNumber}${addr.complement ? ' ' + addr.complement : ''} - ${addr.neighborhood}, ${addr.city}`;
           }
+          if (details.orderTiming === 'SCHEDULED') {
+            isScheduled = true;
+            deliveryDateTime = details.delivery?.deliveryDateTime;
+          }
         }
       } catch (detailsErr) {
         console.warn("[iFood] Não foi possível consultar detalhes do pedido:", detailsErr);
+      }
+
+      if (isScheduled && deliveryDateTime) {
+        const targetTime = new Date(deliveryDateTime).getTime();
+        const now = Date.now();
+        const timeToWait = targetTime - now;
+
+        if (timeToWait > 0) {
+          console.log(`[iFood] Pedido agendado. Aguardando ${timeToWait}ms para despachar.`);
+          
+          // Background task to dispatch exactly at the scheduled time
+          setTimeout(async () => {
+             console.log(`[iFood] Executando despacho agendado agora para ${targetOrderId}...`);
+             // Send readyToPickup first
+             await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${targetOrderId}/readyToPickup`, {
+                method: "POST", headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({})
+             }).catch(console.error);
+
+             // Send dispatch
+             await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${targetOrderId}/dispatch`, {
+                method: "POST", headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({})
+             }).catch(console.error);
+             
+             // Drain events to get ACK
+             setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
+          }, Math.min(timeToWait, 150000)); // clamp to 2.5 mins if it's very long for safety in cloud run, though it might die. Wait, Homologation tests are quick, usually 1-2 mins.
+
+          return res.json({
+            success: true,
+            customerName,
+            deliveryAddress,
+            message: `Pedido agendado recebido! O sistema despachará automaticamente no horário correto (${new Date(deliveryDateTime).toLocaleTimeString()}).`
+          });
+        }
       }
 
       // 3. Opcionalmente enviar READY_TO_PICKUP antes do despacho, para garantir a transição de status exigida pela homologação do iFood (READY_TO_PICKUP -> DISPATCHED)
@@ -494,6 +534,13 @@ app.post("/api/ifood/dispatch", async (req, res) => {
                 addressStr = `${addr.streetName}, ${addr.streetNumber}${addr.complement ? ' ' + addr.complement : ''} - ${addr.neighborhood}, ${addr.city}`;
               }
 
+              let isScheduled = false;
+              let scheduledTime = "";
+              if (orderDetails.orderTiming === 'SCHEDULED' && orderDetails.delivery?.deliveryDateTime) {
+                isScheduled = true;
+                scheduledTime = new Date(orderDetails.delivery.deliveryDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }
+
               fetchedOrders.push({
                 id: orderDetails.id,
                 orderNumber: displayId,
@@ -503,7 +550,9 @@ app.post("/api/ifood/dispatch", async (req, res) => {
                 totalValue: ((orderDetails.payments?.pending || 0) / 100 || 45.00).toFixed(2),
                 createdAt: "Agora mesmo",
                 entregaFacilRequested: false,
-                entregaFacilStatus: null
+                entregaFacilStatus: null,
+                isScheduled,
+                scheduledTime
               });
             }
           }

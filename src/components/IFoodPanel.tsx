@@ -16,6 +16,8 @@ interface IFoodOrder {
     courierPhone: string;
     status: string;
   } | null;
+  isScheduled?: boolean;
+  scheduledTime?: string;
 }
 
 interface IFoodPanelProps {
@@ -756,7 +758,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                   let statusBadge = <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full">Novo</span>;
                   if (isCancelled) statusBadge = <span className="bg-rose-100 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-full">Cancelado</span>;
                   else if (isConcluded) statusBadge = <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-full">Concluído</span>;
-                  else if (isDispatched) statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">Enviado</span>;
+                  else if (isDispatched) statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">Despachado</span>;
                   else if (isConfirmed) statusBadge = <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full">Em Preparo</span>;
 
                   return (
@@ -767,9 +769,16 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                     >
                       <div>
                         <div className="flex justify-between items-center mb-2.5">
-                          <span className="bg-rose-50 text-rose-700 text-xs font-black px-2.5 py-1 rounded-lg border border-rose-100">
-                            #{order.orderNumber}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="bg-rose-50 text-rose-700 text-xs font-black px-2.5 py-1 rounded-lg border border-rose-100">
+                              #{order.orderNumber}
+                            </span>
+                            {order.isScheduled && (
+                              <span className="bg-purple-100 text-purple-700 text-[10px] font-black px-2 py-0.5 rounded-full">
+                                Agendado: {order.scheduledTime}
+                              </span>
+                            )}
+                          </div>
                           {statusBadge}
                         </div>
                         <div className="flex items-center gap-2 text-xs font-extrabold text-slate-900 mb-1">
@@ -800,7 +809,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                     let statusBadge = <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Novo</span>;
                     if (isCancelled) statusBadge = <span className="bg-rose-100 text-rose-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Cancelado</span>;
                     else if (isConcluded) statusBadge = <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Concluído</span>;
-                    else if (isDispatched) statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Enviado</span>;
+                    else if (isDispatched) statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Despachado</span>;
                     else if (isConfirmed) statusBadge = <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Em Preparo</span>;
 
                     return (
@@ -810,9 +819,16 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                         className="p-3.5 hover:bg-slate-50 transition flex items-center justify-between cursor-pointer group"
                       >
                         <div className="flex items-center gap-3">
-                          <span className="bg-rose-50 text-rose-700 font-black text-xs px-2.5 py-1 rounded-lg border border-rose-100">
-                            #{order.orderNumber}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="bg-rose-50 text-rose-700 font-black text-xs px-2.5 py-1 rounded-lg border border-rose-100">
+                              #{order.orderNumber}
+                            </span>
+                            {order.isScheduled && (
+                              <span className="bg-purple-100 text-purple-700 text-[10px] font-black px-2 py-0.5 rounded-full">
+                                Agendado: {order.scheduledTime}
+                              </span>
+                            )}
+                          </div>
                           <div>
                             <h4 className="text-xs font-black text-slate-900 group-hover:text-rose-600 transition">{order.customerName}</h4>
                             <p className="text-[11px] text-slate-500 font-medium line-clamp-1">{order.items}</p>
@@ -847,9 +863,16 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
               {/* Header */}
               <div className="bg-slate-900 text-white p-4.5 flex justify-between items-center">
                 <div className="flex items-center gap-2.5">
-                  <span className="bg-rose-600 text-white text-xs font-black px-3 py-1 rounded-lg">
-                    Pedido #{order.orderNumber}
-                  </span>
+                  <div className="flex flex-col gap-1">
+                    <span className="bg-rose-600 text-white text-xs font-black px-3 py-1 rounded-lg w-max">
+                      Pedido #{order.orderNumber}
+                    </span>
+                    {order.isScheduled && (
+                      <span className="bg-purple-600 text-white text-[10px] font-black px-2 py-0.5 rounded-lg w-max">
+                        Agendado: {order.scheduledTime}
+                      </span>
+                    )}
+                  </div>
                   <div>
                     <h3 className="text-sm font-extrabold">{order.customerName}</h3>
                     <span className="text-[10px] text-slate-400 font-medium">Recebido às {order.createdAt}</span>
@@ -912,27 +935,66 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                       <p className="text-[11px] text-rose-800 font-bold">Cancelamento confirmado e registrado na plataforma.</p>
                     </div>
                   ) : dispatchedOrderIds.includes(order.id) ? (
-                    <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-1">
-                      <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
-                      </span>
-                      <p className="text-xs text-amber-900 font-extrabold">Status: Despachado com sucesso</p>
+                    <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-3">
+                      <div>
+                        <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
+                        </span>
+                        <p className="text-xs text-amber-900 font-extrabold">Status: Despachado com sucesso</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const updated = [...concludedOrderIds, order.id];
+                          setConcludedOrderIds(updated);
+                          localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
+                        }}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <Check className="w-4 h-4 text-white" />
+                        <span>Marcar como Concluído</span>
+                      </button>
                     </div>
                   ) : isAssignedViaIFoodDelivery ? (
-                    <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-xl space-y-1">
-                      <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
-                      </span>
-                      <p className="text-xs text-slate-800 font-extrabold">
-                        Entregador: {(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}
-                      </p>
+                    <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-xl space-y-3">
+                      <div>
+                        <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
+                        </span>
+                        <p className="text-xs text-slate-800 font-extrabold">
+                          Entregador: {(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const updated = [...concludedOrderIds, order.id];
+                          setConcludedOrderIds(updated);
+                          localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
+                        }}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <Check className="w-4 h-4 text-white" />
+                        <span>Marcar como Concluído</span>
+                      </button>
                     </div>
                   ) : isAlreadyAssigned ? (
-                    <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-1">
-                      <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Despachado (Motoboy da Casa)
-                      </span>
-                      <p className="text-xs text-slate-800 font-extrabold">Entregador: {assignedInHouseOrder.motoboyName}</p>
+                    <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-3">
+                      <div>
+                        <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Despachado (Motoboy da Casa)
+                        </span>
+                        <p className="text-xs text-slate-800 font-extrabold">Entregador: {assignedInHouseOrder.motoboyName}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const updated = [...concludedOrderIds, order.id];
+                          setConcludedOrderIds(updated);
+                          localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
+                        }}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <Check className="w-4 h-4 text-white" />
+                        <span>Marcar como Concluído</span>
+                      </button>
                     </div>
                   ) : (
                     <div className="space-y-2 pt-1">
