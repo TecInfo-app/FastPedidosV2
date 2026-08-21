@@ -31,8 +31,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   onAssignToInHouseMotoboy,
   onAddEntregaFacilOrder,
 }) => {
-  const DEFAULT_WORKER_URL = 'https://ifood-integracao.iranildo-jobs.workers.dev';
-  const API_BASE = (import.meta.env.VITE_API_URL || DEFAULT_WORKER_URL).replace(/\/$/, '');
+  const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
   const [isExpanded, setIsExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [iFoodOrders, setIFoodOrders] = useState<IFoodOrder[]>(() => {
@@ -963,7 +962,10 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                       </button>
 
                       <button
-                        onClick={() => {
+                        onClick={async () => {
+                          // 1. Despachar oficialmente o pedido no iFood (envia READY_TO_PICKUP e DISPATCH)
+                          await handleDispatchOfficial(order.id, order.orderNumber);
+                          // 2. Vincular ao motoboy interno do sistema local
                           onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress);
                           setSelectedOrderForModal(null);
                         }}

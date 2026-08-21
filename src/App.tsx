@@ -615,7 +615,17 @@ export default function App() {
           'info'
         );
         
-        const apiBase = (import.meta.env.VITE_API_URL || 'https://ifood-integracao.iranildo-jobs.workers.dev').replace(/\/$/, '');
+        let targetOrderId = '';
+        try {
+          const savedPolled = localStorage.getItem('ifood_polled_orders');
+          if (savedPolled) {
+            const list = JSON.parse(savedPolled);
+            const found = list.find((o: any) => o.orderNumber === orderNumber || o.id === orderNumber);
+            if (found) targetOrderId = found.id;
+          }
+        } catch (e) {}
+
+        const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
         fetch(`${apiBase}/api/ifood/dispatch`, {
           method: 'POST',
           headers: {
@@ -625,6 +635,7 @@ export default function App() {
             clientId,
             clientSecret,
             merchantId,
+            orderId: targetOrderId || undefined,
             orderNumber,
             sandbox
           })

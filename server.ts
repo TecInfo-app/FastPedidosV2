@@ -190,7 +190,32 @@ async function startServer() {
         console.warn("[iFood] Não foi possível consultar detalhes do pedido:", detailsErr);
       }
 
-      // 3. Realizar o Despacho (Dispatch) do Pedido no iFood
+      // 3. Opcionalmente enviar READY_TO_PICKUP antes do despacho, para garantir a transição de status exigida pela homologação do iFood (READY_TO_PICKUP -> DISPATCHED)
+      try {
+        console.log(`[iFood] Enviando sinal de READY_TO_PICKUP para o pedido ${targetOrderId}...`);
+        const readyResponse = await fetch(
+          `https://merchant-api.ifood.com.br/order/v1.0/orders/${targetOrderId}/readyToPickup`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({})
+          }
+        );
+        if (readyResponse.ok) {
+          console.log(`[iFood] Pedido ${targetOrderId} colocado em READY_TO_PICKUP com sucesso.`);
+        } else {
+          const readyErrText = await readyResponse.text();
+          console.warn(`[iFood] Resposta ao readyToPickup (pode ser ignorada se já estiver pronto): ${readyResponse.status} - ${readyErrText}`);
+        }
+      } catch (readyErr) {
+        console.warn("[iFood] Falha ao tentar enviar readyToPickup:", readyErr);
+      }
+
+      // 4. Realizar o Despacho (Dispatch) do Pedido no iFood
+      console.log(`[iFood] Enviando sinal de DISPATCH para o pedido ${targetOrderId}...`);
       const dispatchResponse = await fetch(
         `https://merchant-api.ifood.com.br/order/v1.0/orders/${targetOrderId}/dispatch`,
         {
