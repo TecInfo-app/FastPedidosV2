@@ -369,7 +369,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       if (clientId && clientSecret && merchantId) {
         fetchIFoodOrders(true);
       }
-    }, 5000);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [isExpanded]);

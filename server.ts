@@ -73,6 +73,10 @@ async function startServer() {
       });
 
       if (confirmResponse.ok) {
+        // Run drain asynchronously to capture the resulting event immediately
+        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
+        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 3000);
+
         return res.json({
           success: true,
           message: `Pedido ${orderNumber || id} confirmado com sucesso no iFood!`
@@ -136,12 +140,17 @@ async function startServer() {
 
       // Acknowledge immediately
       const ackBody = events.map(e => ({ id: e.id }));
+      const ackHeaders: Record<string, string> = {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      };
+      if (merchantId) {
+        ackHeaders["x-polling-merchants"] = merchantId;
+      }
+
       const ackResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events/acknowledgment", {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json"
-        },
+        headers: ackHeaders,
         body: JSON.stringify(ackBody)
       });
 
@@ -285,6 +294,10 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       );
 
       if (dispatchResponse.ok) {
+        // Run drain asynchronously to capture the resulting event immediately
+        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
+        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 3000);
+
         return res.json({
           success: true,
           customerName,
@@ -588,6 +601,11 @@ app.post("/api/ifood/dispatch", async (req, res) => {
 
       if (cancelResponse.ok) {
         console.log(`[iFood Cancel] Pedido ${id} cancelado com sucesso no iFood!`);
+        
+        // Run drain asynchronously to capture the resulting event immediately
+        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
+        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 3000);
+
         return res.json({
           success: true,
           message: "Pedido cancelado com sucesso no iFood!"
@@ -662,6 +680,11 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       });
 
       if (acceptRes.ok || acceptRes.status === 400 || acceptRes.status === 409) {
+        if (acceptRes.ok) {
+          // Run drain asynchronously to capture the resulting event immediately
+          setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
+          setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 3000);
+        }
         return res.json({ success: true, message: "Cancelamento aceito com sucesso no iFood!" });
       } else {
         const errText = await acceptRes.text();
