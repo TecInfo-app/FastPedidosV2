@@ -74,8 +74,8 @@ async function startServer() {
 
       if (confirmResponse.ok) {
         // Run drain asynchronously to capture the resulting event immediately
-        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
-        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 3000);
+
+
 
         return res.json({
           success: true,
@@ -219,17 +219,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       let targetOrderId = orderId || orderNumber;
 
       // 2. Se o número do pedido for curto (ex: 4 dígitos) e não temos o UUID real, tentamos buscar o UUID correspondente no iFood.
-      if (!orderId && orderNumber && orderNumber.length < 30) {
-        console.log(`[iFood] Pedido curto detectado (${orderNumber}). Consultando fila de eventos...`);
-        const events = await drainAndAcknowledgeEvents(accessToken, merchantId as string);
-        const matchingEvent = events.find(
-          (e) => e.orderDisplayId === orderNumber || e.orderId === orderNumber
-        );
-        if (matchingEvent) {
-          targetOrderId = matchingEvent.orderId;
-          console.log(`[iFood] UUID correlacionado com sucesso: ${targetOrderId}`);
-        }
-      }
+      // REMOVIDO: NUNCA drenar eventos silenciosamente, pois perdemos o processamento. O UUID já vem da UI.
 
       // Fetch details from iFood if possible
       let customerName = undefined;
@@ -281,7 +271,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
              }).catch(console.error);
              
              // Drain events to get ACK
-             setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
+
           }, Math.min(timeToWait, 150000)); // clamp to 2.5 mins if it's very long for safety in cloud run, though it might die. Wait, Homologation tests are quick, usually 1-2 mins.
 
           return res.json({
@@ -335,8 +325,8 @@ app.post("/api/ifood/dispatch", async (req, res) => {
 
       if (dispatchResponse.ok) {
         // Run drain asynchronously to capture the resulting event immediately
-        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
-        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 3000);
+
+
 
         return res.json({
           success: true,
@@ -477,6 +467,10 @@ app.post("/api/ifood/dispatch", async (req, res) => {
               console.error(`[iFood Polling] Erro ao buscar detalhes do pedido ${event.orderId}:`, err);
             }
 
+            let orderCancelReason = "";
+            let isOrderConcluded = false;
+            let isOrderDispatched = false;
+
             // Se o evento for PLACED (novo pedido feito)
             if (event.code === "PLACED") {
               try {
@@ -500,6 +494,9 @@ app.post("/api/ifood/dispatch", async (req, res) => {
                 console.error(`[iFood Polling] Erro ao tentar confirmar pedido ${event.orderId}:`, confirmErr);
               }
             } else if (event.code === "CANCELLATION_REQUESTED" || event.code === "CANCELLATION_COMMAND") {
+              if (event.metadata) {
+                orderCancelReason = event.metadata.CANCEL_REASON || event.metadata.cancelReason || event.metadata.Reason || "Problemas no sistema";
+              }
               try {
                 console.log(`[iFood Polling] Auto-aceitando cancelamento para pedido ${event.orderId}...`);
                 const cancelAcceptRes = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${event.orderId}/acceptCancellation`, {
@@ -518,6 +515,10 @@ app.post("/api/ifood/dispatch", async (req, res) => {
               } catch (cancelErr) {
                 console.error(`[iFood Polling] Erro ao tentar aceitar cancelamento ${event.orderId}:`, cancelErr);
               }
+            } else if (event.code === "CONCLUDED") {
+              isOrderConcluded = true;
+            } else if (event.code === "DISPATCHED") {
+              isOrderDispatched = true;
             }
 
             if (orderDetails) {
@@ -552,8 +553,26 @@ app.post("/api/ifood/dispatch", async (req, res) => {
                 entregaFacilRequested: false,
                 entregaFacilStatus: null,
                 isScheduled,
-                scheduledTime
+                scheduledTime,
+                cancelReason: orderCancelReason || undefined,
+                isConcluded: isOrderConcluded || undefined,
+                isDispatched: isOrderDispatched || undefined
               });
+            } else if (orderCancelReason || isOrderConcluded || isOrderDispatched) {
+               fetchedOrders.push({
+                id: event.orderId,
+                orderNumber: event.orderDisplayId || event.orderId.substring(0, 4),
+                customerName: "Atualizando status...",
+                deliveryAddress: "...",
+                items: "...",
+                totalValue: "0.00",
+                createdAt: "Agora",
+                entregaFacilRequested: false,
+                entregaFacilStatus: null,
+                cancelReason: orderCancelReason || undefined,
+                isConcluded: isOrderConcluded || undefined,
+                isDispatched: isOrderDispatched || undefined
+               });
             }
           }
         }
@@ -652,8 +671,8 @@ app.post("/api/ifood/dispatch", async (req, res) => {
         console.log(`[iFood Cancel] Pedido ${id} cancelado com sucesso no iFood!`);
         
         // Run drain asynchronously to capture the resulting event immediately
-        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
-        setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 3000);
+
+
 
         return res.json({
           success: true,
@@ -731,8 +750,8 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       if (acceptRes.ok || acceptRes.status === 400 || acceptRes.status === 409) {
         if (acceptRes.ok) {
           // Run drain asynchronously to capture the resulting event immediately
-          setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 1000);
-          setTimeout(() => drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error), 3000);
+
+
         }
         return res.json({ success: true, message: "Cancelamento aceito com sucesso no iFood!" });
       } else {

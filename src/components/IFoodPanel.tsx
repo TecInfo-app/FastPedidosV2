@@ -18,6 +18,9 @@ interface IFoodOrder {
   } | null;
   isScheduled?: boolean;
   scheduledTime?: string;
+  cancelReason?: string;
+  isConcluded?: boolean;
+  isDispatched?: boolean;
 }
 
 interface IFoodPanelProps {
@@ -337,7 +340,32 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
             setIFoodOrders(prev => {
               const existingMap = new Map(prev.map(o => [o.id, o]));
               newOrders.forEach(o => {
-                existingMap.set(o.id, o);
+                const existing = existingMap.get(o.id);
+                existingMap.set(o.id, existing ? { ...existing, ...o } : o);
+                if (o.cancelReason) {
+                  setCancelledOrderIds(prevIds => {
+                    if (prevIds.includes(o.id)) return prevIds;
+                    const next = [...prevIds, o.id];
+                    localStorage.setItem('ifood_cancelled_orders', JSON.stringify(next));
+                    return next;
+                  });
+                }
+                if (o.isConcluded) {
+                  setConcludedOrderIds(prevIds => {
+                    if (prevIds.includes(o.id)) return prevIds;
+                    const next = [...prevIds, o.id];
+                    localStorage.setItem('ifood_concluded_orders', JSON.stringify(next));
+                    return next;
+                  });
+                }
+                if (o.isDispatched) {
+                  setDispatchedOrderIds(prevIds => {
+                    if (prevIds.includes(o.id)) return prevIds;
+                    const next = [...prevIds, o.id];
+                    localStorage.setItem('ifood_dispatched_orders', JSON.stringify(next));
+                    return next;
+                  });
+                }
               });
               return Array.from(existingMap.values());
             });
@@ -611,22 +639,20 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
           {/* Compact Filter and View Mode Header */}
           {displayedOrders.length > 0 && (() => {
-            const countNew = displayedOrders.filter(order => {
-              const isCancelled = cancelledOrderIds.includes(order.id);
-              const isConcluded = concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e';
+            const getOrderStatus = (order: IFoodOrder) => {
+              if (cancelledOrderIds.includes(order.id)) return 'cancelled';
+              if (concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e') return 'concluded';
               const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
-              const isDispatched = dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
-              const isConfirmed = confirmedOrderIds.includes(order.id);
-              return !isCancelled && !isConcluded && !isDispatched && !isConfirmed;
-            }).length;
+              if (dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested) return 'dispatched';
+              if (confirmedOrderIds.includes(order.id)) return 'confirmed';
+              return 'new';
+            };
 
-            const countConfirmed = displayedOrders.filter(order => confirmedOrderIds.includes(order.id)).length;
-            const countDispatched = displayedOrders.filter(order => {
-              const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
-              return dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
-            }).length;
-            const countConcluded = displayedOrders.filter(order => concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e').length;
-            const countCancelled = displayedOrders.filter(order => cancelledOrderIds.includes(order.id)).length;
+            const countNew = displayedOrders.filter(o => getOrderStatus(o) === 'new').length;
+            const countConfirmed = displayedOrders.filter(o => getOrderStatus(o) === 'confirmed').length;
+            const countDispatched = displayedOrders.filter(o => getOrderStatus(o) === 'dispatched').length;
+            const countConcluded = displayedOrders.filter(o => getOrderStatus(o) === 'concluded').length;
+            const countCancelled = displayedOrders.filter(o => getOrderStatus(o) === 'cancelled').length;
 
             const filterLabels: Record<string, { label: string; color: string }> = {
               all: { label: 'Todos os Pedidos', color: 'text-slate-900 bg-slate-100' },
@@ -719,18 +745,21 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
           {(() => {
             const filteredOrders = displayedOrders.filter((order) => {
-              const isCancelled = cancelledOrderIds.includes(order.id);
-              const isConcluded = concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e';
-              const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
-              const isDispatched = dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
-              const isConfirmed = confirmedOrderIds.includes(order.id);
-              const isNew = !isCancelled && !isConcluded && !isDispatched && !isConfirmed;
+              const getOrderStatus = (o: IFoodOrder) => {
+                if (cancelledOrderIds.includes(o.id)) return 'cancelled';
+                if (concludedOrderIds.includes(o.id) || o.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e') return 'concluded';
+                const assignedInHouseOrder = allOrders.find((i) => i.orderNumber === o.orderNumber);
+                if (dispatchedOrderIds.includes(o.id) || !!assignedInHouseOrder || o.entregaFacilRequested) return 'dispatched';
+                if (confirmedOrderIds.includes(o.id)) return 'confirmed';
+                return 'new';
+              };
+              const status = getOrderStatus(order);
 
-              if (orderFilter === 'new') return isNew;
-              if (orderFilter === 'confirmed') return isConfirmed;
-              if (orderFilter === 'dispatched') return isDispatched;
-              if (orderFilter === 'concluded') return isConcluded;
-              if (orderFilter === 'cancelled') return isCancelled;
+              if (orderFilter === 'new') return status === 'new';
+              if (orderFilter === 'confirmed') return status === 'confirmed';
+              if (orderFilter === 'dispatched') return status === 'dispatched';
+              if (orderFilter === 'concluded') return status === 'concluded';
+              if (orderFilter === 'cancelled') return status === 'cancelled';
               return true;
             });
 
@@ -909,94 +938,110 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                 {/* Actions & Status */}
                 <div className="pt-2 border-t border-slate-100 space-y-2">
                   <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">Ações e Status do Pedido</span>
+                  {(() => {
+                    const getOrderStatus = (o: IFoodOrder) => {
+                      if (cancelledOrderIds.includes(o.id)) return 'cancelled';
+                      if (concludedOrderIds.includes(o.id) || o.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e') return 'concluded';
+                      const assignedInHouseOrder = allOrders.find((i) => i.orderNumber === o.orderNumber);
+                      if (dispatchedOrderIds.includes(o.id) || !!assignedInHouseOrder || o.entregaFacilRequested) return 'dispatched';
+                      if (confirmedOrderIds.includes(o.id)) return 'confirmed';
+                      return 'new';
+                    };
+                    const status = getOrderStatus(order);
 
-                  {confirmedOrderIds.includes(order.id) && !dispatchedOrderIds.includes(order.id) && !isAssignedViaIFoodDelivery && !isAlreadyAssigned && (
-                    <div className="bg-indigo-50 border border-indigo-200 p-2.5 rounded-xl flex items-center gap-2">
-                      <Check className="w-4 h-4 text-indigo-600 stroke-[3] shrink-0" />
-                      <div>
-                        <span className="text-[10px] uppercase font-black tracking-wider text-indigo-900 block">Status: Confirmado</span>
-                        <span className="text-xs text-indigo-800 font-bold">Pedido confirmado no iFood</span>
-                      </div>
-                    </div>
-                  )}
+                    return (
+                      <>
+                        {status === 'confirmed' && !isAssignedViaIFoodDelivery && !isAlreadyAssigned && (
+                          <div className="bg-indigo-50 border border-indigo-200 p-2.5 rounded-xl flex items-center gap-2">
+                            <Check className="w-4 h-4 text-indigo-600 stroke-[3] shrink-0" />
+                            <div>
+                              <span className="text-[10px] uppercase font-black tracking-wider text-indigo-900 block">Status: Confirmado</span>
+                              <span className="text-xs text-indigo-800 font-bold">Pedido confirmado no iFood</span>
+                            </div>
+                          </div>
+                        )}
 
-                  {concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e' ? (
-                    <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl space-y-1">
-                      <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Status: Concluído
-                      </span>
-                      <p className="text-xs text-emerald-900 font-extrabold">Pedido Concluído (iFood)</p>
-                    </div>
-                  ) : cancelledOrderIds.includes(order.id) ? (
-                    <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-xl space-y-1 text-center">
-                      <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
-                        <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
-                      </span>
-                      <p className="text-[11px] text-rose-800 font-bold">Cancelamento confirmado e registrado na plataforma.</p>
-                    </div>
-                  ) : dispatchedOrderIds.includes(order.id) ? (
-                    <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-3">
-                      <div>
-                        <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
-                        </span>
-                        <p className="text-xs text-amber-900 font-extrabold">Status: Despachado com sucesso</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const updated = [...concludedOrderIds, order.id];
-                          setConcludedOrderIds(updated);
-                          localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
-                        }}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <Check className="w-4 h-4 text-white" />
-                        <span>Marcar como Concluído</span>
-                      </button>
-                    </div>
-                  ) : isAssignedViaIFoodDelivery ? (
-                    <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-xl space-y-3">
-                      <div>
-                        <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
-                        </span>
-                        <p className="text-xs text-slate-800 font-extrabold">
-                          Entregador: {(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const updated = [...concludedOrderIds, order.id];
-                          setConcludedOrderIds(updated);
-                          localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
-                        }}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <Check className="w-4 h-4 text-white" />
-                        <span>Marcar como Concluído</span>
-                      </button>
-                    </div>
-                  ) : isAlreadyAssigned ? (
-                    <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-3">
-                      <div>
-                        <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Despachado (Motoboy da Casa)
-                        </span>
-                        <p className="text-xs text-slate-800 font-extrabold">Entregador: {assignedInHouseOrder.motoboyName}</p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const updated = [...concludedOrderIds, order.id];
-                          setConcludedOrderIds(updated);
-                          localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
-                        }}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <Check className="w-4 h-4 text-white" />
-                        <span>Marcar como Concluído</span>
-                      </button>
-                    </div>
-                  ) : (
+                        {status === 'concluded' ? (
+                          <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl space-y-1">
+                            <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Status: Concluído
+                            </span>
+                            <p className="text-xs text-emerald-900 font-extrabold">Pedido Concluído (iFood)</p>
+                          </div>
+                        ) : status === 'cancelled' ? (
+                          <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-xl space-y-1 text-center">
+                            <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
+                              <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
+                            </span>
+                            <p className="text-[11px] text-rose-800 font-bold">
+                              {order.cancelReason ? `Motivo: ${order.cancelReason}` : "Cancelamento confirmado e registrado na plataforma."}
+                            </p>
+                          </div>
+                        ) : status === 'dispatched' ? (
+                          isAssignedViaIFoodDelivery ? (
+                            <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-xl space-y-3">
+                              <div>
+                                <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
+                                  <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
+                                </span>
+                                <p className="text-xs text-slate-800 font-extrabold">
+                                  Entregador: {(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const updated = [...concludedOrderIds, order.id];
+                                  setConcludedOrderIds(updated);
+                                  localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
+                                }}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                              >
+                                <Check className="w-4 h-4 text-white" />
+                                <span>Marcar como Concluído</span>
+                              </button>
+                            </div>
+                          ) : isAlreadyAssigned ? (
+                            <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-3">
+                              <div>
+                                <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
+                                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Despachado (Motoboy da Casa)
+                                </span>
+                                <p className="text-xs text-slate-800 font-extrabold">Entregador: {assignedInHouseOrder.motoboyName}</p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const updated = [...concludedOrderIds, order.id];
+                                  setConcludedOrderIds(updated);
+                                  localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
+                                }}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                              >
+                                <Check className="w-4 h-4 text-white" />
+                                <span>Marcar como Concluído</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-3">
+                              <div>
+                                <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
+                                  <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
+                                </span>
+                                <p className="text-xs text-amber-900 font-extrabold">Status: Despachado com sucesso</p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const updated = [...concludedOrderIds, order.id];
+                                  setConcludedOrderIds(updated);
+                                  localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
+                                }}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                              >
+                                <Check className="w-4 h-4 text-white" />
+                                <span>Marcar como Concluído</span>
+                              </button>
+                            </div>
+                          )
+                        ) : (
                     <div className="space-y-2 pt-1">
                       <button
                         onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
@@ -1049,6 +1094,9 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                       </button>
                     </div>
                   )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
