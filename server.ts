@@ -343,48 +343,70 @@ async function startServer() {
       const tokenData = (await tokenResponse.json()) as { accessToken: string };
       const accessToken = tokenData.accessToken;
 
-      // 2. Chamar o endpoint real de polling do iFood
-      const pollingResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:polling", {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`
-        }
-      });
+      // 2. Chamar o endpoint real de polling do iFood e drenar todos os eventos pendentes com Acknowledgment imediato
+      let allEvents: any[] = [];
+      let keepPolling = true;
+      let iterations = 0;
 
-      if (pollingResponse.status === 204) {
-        console.log("[iFood Polling] Sem novos eventos (204 No Content).");
-        return res.json([]);
-      }
-
-      if (!pollingResponse.ok) {
-        const errText = await pollingResponse.text();
-        console.error("[iFood Polling] Erro ao buscar eventos:", errText);
-        return res.status(pollingResponse.status).json({
-          success: false,
-          message: `Erro ao buscar eventos do iFood: ${errText}`
-        });
-      }
-
-      const events = (await pollingResponse.json()) as any[];
-      console.log(`[iFood Polling] ${events.length} novos eventos recebidos!`);
-
-      if (events.length > 0) {
-        // 3. Confirmar recepção (Acknowledgment) dos eventos recebidos com o formato oficial [{ id }] (exigido pelo Firefly Audit do iFood)
-        const ackBody = events.map(e => ({ id: e.id }));
-        const ackResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:acknowledgment", {
-          method: "POST",
+      while (keepPolling && iterations < 5) {
+        iterations++;
+        const pollingResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:polling", {
+          method: "GET",
           headers: {
-            "Authorization": `Bearer ${accessToken}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(ackBody)
+            "Authorization": `Bearer ${accessToken}`
+          }
         });
 
-        if (ackResponse.ok) {
-          console.log(`[iFood Polling] Acknowledgment enviado com sucesso para ${events.length} eventos.`);
-        } else {
-          console.error("[iFood Polling] Erro ao enviar Acknowledgment:", await ackResponse.text());
+        if (pollingResponse.status === 204) {
+          keepPolling = false;
+          break;
         }
+
+        if (!pollingResponse.ok) {
+          const errText = await pollingResponse.text();
+          console.error("[iFood Polling] Erro ao buscar eventos:", errText);
+          if (allEvents.length === 0) {
+            return res.status(pollingResponse.status).json({
+              success: false,
+              message: `Erro ao buscar eventos do iFood: ${errText}`
+            });
+          }
+          break;
+        }
+
+        const events = (await pollingResponse.json()) as any[];
+        if (!Array.isArray(events) || events.length === 0) {
+          keepPolling = false;
+          break;
+        }
+
+        allEvents = allEvents.concat(events);
+
+        // Enviar Acknowledgment IMEDIATAMENTE após receber o lote de eventos (exigência estrita do Firefly Audit)
+        try {
+          const ackBody = events.map(e => ({ id: e.id }));
+          const ackResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:acknowledgment", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(ackBody)
+          });
+          if (ackResponse.ok) {
+            console.log(`[iFood Polling] Acknowledgment enviado com sucesso para ${events.length} eventos.`);
+          } else {
+            console.error("[iFood Polling] Erro ao enviar Acknowledgment:", await ackResponse.text());
+          }
+        } catch (ackErr) {
+          console.error("[iFood Polling] Falha ao enviar Acknowledgment:", ackErr);
+        }
+      }
+
+      console.log(`[iFood Polling] Total de ${allEvents.length} eventos processados e reconhecidos.`);
+
+      if (allEvents.length > 0) {
+        const events = allEvents;
 
         // Fetch details of placing orders to display real orders in UI
         const fetchedOrders: any[] = [];

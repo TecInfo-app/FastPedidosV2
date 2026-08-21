@@ -361,13 +361,15 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     // Initial fetch
     fetchIFoodOrders(!isExpanded);
 
-    // Set up background polling interval
+    // Set up background polling interval (every 5 seconds when credentials exist for instant event ACK)
     const interval = setInterval(() => {
-      const isEnabled = localStorage.getItem('ifood_enabled') === 'true';
-      if (isEnabled) {
+      const clientId = localStorage.getItem('ifood_client_id');
+      const clientSecret = localStorage.getItem('ifood_client_secret');
+      const merchantId = localStorage.getItem('ifood_merchant_id');
+      if (clientId && clientSecret && merchantId) {
         fetchIFoodOrders(true);
       }
-    }, 15000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [isExpanded]);
