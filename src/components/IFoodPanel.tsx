@@ -39,7 +39,21 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
   onAddEntregaFacilOrder,
   onConcludeOrder,
 }) => {
-  const API_BASE = (localStorage.getItem('ifood_worker_url') || import.meta.env.VITE_API_URL || 'https://ifood-integracao.iranildo-jobs.workers.dev').replace(/\/$/, '');
+  const getApiBase = () => {
+    const customWorker = localStorage.getItem('ifood_worker_url');
+    if (customWorker && customWorker.trim()) {
+      return customWorker.trim().replace(/\/$/, '');
+    }
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname;
+      if (host === 'localhost' || host.includes('run.app') || window.location.port === '3000') {
+        return '';
+      }
+    }
+    return (import.meta.env.VITE_API_URL || 'https://ifood-integracao.iranildo-jobs.workers.dev').replace(/\/$/, '');
+  };
+
+  const API_BASE = getApiBase();
   const [isExpanded, setIsExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [iFoodOrders, setIFoodOrders] = useState<IFoodOrder[]>(() => {

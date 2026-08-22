@@ -75,10 +75,14 @@ export const SetupModal: React.FC<SetupModalProps> = ({
   const [ifoodMerchantId, setIfoodMerchantId] = useState<string>(() => {
     return localStorage.getItem('ifood_merchant_id') || '';
   });
+  const [ifoodWorkerUrl, setIfoodWorkerUrl] = useState<string>(() => {
+    return localStorage.getItem('ifood_worker_url') || '';
+  });
   const [ifoodSandbox, setIfoodSandbox] = useState<boolean>(() => {
     return localStorage.getItem('ifood_sandbox') === 'true';
   });
   const [ifoodSaveSuccess, setIfoodSaveSuccess] = useState(false);
+  const [workerCopied, setWorkerCopied] = useState(false);
 
   if (!isOpen) return null;
 
@@ -110,6 +114,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
     localStorage.setItem('ifood_client_id', ifoodClientId.trim());
     localStorage.setItem('ifood_client_secret', ifoodClientSecret.trim());
     localStorage.setItem('ifood_merchant_id', ifoodMerchantId.trim());
+    localStorage.setItem('ifood_worker_url', ifoodWorkerUrl.trim());
     localStorage.setItem('ifood_sandbox', String(ifoodSandbox));
 
     if (auth.currentUser) {
@@ -119,6 +124,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
           ifoodClientId: ifoodClientId.trim(),
           ifoodClientSecret: ifoodClientSecret.trim(),
           ifoodMerchantId: ifoodMerchantId.trim(),
+          ifoodWorkerUrl: ifoodWorkerUrl.trim(),
           ifoodSandbox
         }, { merge: true });
       } catch (err) {
@@ -593,6 +599,20 @@ export const SetupModal: React.FC<SetupModalProps> = ({
                       className="w-full p-2.5 border border-rose-200 rounded-xl text-xs bg-white focus:ring-2 focus:ring-rose-500 outline-none text-slate-800"
                     />
                   </div>
+
+                  <div>
+                    <label htmlFor="ifoodWorkerUrl" className="block text-[10px] font-bold text-rose-800 uppercase mb-0.5">
+                      URL do Worker Cloudflare (Opcional para GitHub Pages)
+                    </label>
+                    <input
+                      id="ifoodWorkerUrl"
+                      type="url"
+                      value={ifoodWorkerUrl}
+                      onChange={(e) => setIfoodWorkerUrl(e.target.value)}
+                      placeholder="Ex: https://ifood-integracao.iranildo-jobs.workers.dev"
+                      className="w-full p-2.5 border border-rose-200 rounded-xl text-xs bg-white focus:ring-2 focus:ring-rose-500 outline-none text-slate-800 font-mono"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -608,7 +628,7 @@ export const SetupModal: React.FC<SetupModalProps> = ({
 
             {ifoodSaveSuccess && (
               <p className="mt-2 text-center text-xs text-rose-600 font-extrabold flex items-center justify-center gap-1">
-                <Check className="w-3.5 h-3.5" /> Configuração salva localmente com sucesso!
+                <Check className="w-3.5 h-3.5" /> Configuração salva com sucesso!
               </p>
             )}
           </div>
