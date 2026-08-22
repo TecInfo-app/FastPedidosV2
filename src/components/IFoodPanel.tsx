@@ -521,6 +521,42 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     }
   };
 
+  const handleConcludeIFoodOrder = async (orderId: string, orderNumber: string) => {
+    setActionLoading(orderId + '-conclude');
+    const clientId = localStorage.getItem('ifood_client_id') || '';
+    const clientSecret = localStorage.getItem('ifood_client_secret') || '';
+    const merchantId = localStorage.getItem('ifood_merchant_id') || '';
+    const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
+
+    if (!clientId || !clientSecret || !merchantId) {
+      onShowAlert('Configure suas credenciais iFood primeiro no menu de configurações.', 'warning');
+      setActionLoading(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/conclude`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber, sandbox })
+      });
+      const data = await res.json();
+      if (data.success) {
+        onShowAlert(`Pedido Nº ${orderNumber} concluído com sucesso no iFood!`, 'success');
+        const updated = [...concludedOrderIds, orderId];
+        setConcludedOrderIds(updated);
+        localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
+      } else {
+        onShowAlert(`[iFood] ${data.message}`, 'info');
+      }
+    } catch (err) {
+      console.error(err);
+      onShowAlert('Erro ao concluir pedido no iFood.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleCancelIFoodOrder = async (orderId: string, orderNumber: string) => {
     setActionLoading(orderId + '-cancel');
     const clientId = localStorage.getItem('ifood_client_id') || '';
@@ -539,24 +575,18 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, clientSecret, merchantId })
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          onShowAlert(`Pedido Nº ${orderNumber} cancelado com sucesso no iFood!`, 'success');
-          const updatedCancelled = [...cancelledOrderIds, orderId];
-          setCancelledOrderIds(updatedCancelled);
-          localStorage.setItem('ifood_cancelled_orders', JSON.stringify(updatedCancelled));
-          setActionLoading(null);
-          return;
-        }
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onShowAlert(`Pedido Nº ${orderNumber} cancelado com sucesso no iFood!`, 'success');
+        const updatedCancelled = [...cancelledOrderIds, orderId];
+        setCancelledOrderIds(updatedCancelled);
+        localStorage.setItem('ifood_cancelled_orders', JSON.stringify(updatedCancelled));
+      } else {
+        onShowAlert(`[iFood Cancelamento] ${data.message || 'Falha ao comunicar com a API do iFood'}`, 'error');
       }
-      throw new Error("Endpoint indisponível ou erro no servidor");
-    } catch (err) {
-      console.warn("Using client-side fallback for iFood order cancellation:", err);
-      onShowAlert(`Pedido Nº ${orderNumber} cancelado com sucesso! (Modo de Homologação ativo)`, 'success');
-      const updatedCancelled = [...cancelledOrderIds, orderId];
-      setCancelledOrderIds(updatedCancelled);
-      localStorage.setItem('ifood_cancelled_orders', JSON.stringify(updatedCancelled));
+    } catch (err: any) {
+      console.error("Erro ao cancelar pedido no iFood:", err);
+      onShowAlert(`Erro de conexão com o iFood: ${err.message || 'Falha na requisição'}`, 'error');
     } finally {
       setActionLoading(null);
     }
@@ -992,11 +1022,8 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                                 </p>
                               </div>
                               <button
-                                onClick={() => {
-                                  const updated = [...concludedOrderIds, order.id];
-                                  setConcludedOrderIds(updated);
-                                  localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
-                                }}
+                                onClick={() => handleConcludeIFoodOrder(order.id, order.orderNumber)}
+                                disabled={actionLoading === order.id + '-conclude'}
                                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                               >
                                 <Check className="w-4 h-4 text-white" />
@@ -1012,11 +1039,8 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                                 <p className="text-xs text-slate-800 font-extrabold">Entregador: {assignedInHouseOrder.motoboyName}</p>
                               </div>
                               <button
-                                onClick={() => {
-                                  const updated = [...concludedOrderIds, order.id];
-                                  setConcludedOrderIds(updated);
-                                  localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
-                                }}
+                                onClick={() => handleConcludeIFoodOrder(order.id, order.orderNumber)}
+                                disabled={actionLoading === order.id + '-conclude'}
                                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                               >
                                 <Check className="w-4 h-4 text-white" />
@@ -1032,11 +1056,8 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                                 <p className="text-xs text-amber-900 font-extrabold">Status: Despachado com sucesso</p>
                               </div>
                               <button
-                                onClick={() => {
-                                  const updated = [...concludedOrderIds, order.id];
-                                  setConcludedOrderIds(updated);
-                                  localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
-                                }}
+                                onClick={() => handleConcludeIFoodOrder(order.id, order.orderNumber)}
+                                disabled={actionLoading === order.id + '-conclude'}
                                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                               >
                                 <Check className="w-4 h-4 text-white" />

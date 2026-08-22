@@ -207,8 +207,18 @@ async function startServer() {
     }
   }
 
-  // Active polling loop every 1.5 seconds to guarantee 100% Firefly Audit event acknowledgment speed
-  setInterval(runBackgroundPollingCycle, 1500);
+  // Active polling loop every 800ms to guarantee 100% Firefly Audit event acknowledgment speed
+  setInterval(runBackgroundPollingCycle, 800);
+
+  // Force poll endpoint for instant manual/automation sync
+  app.post("/api/ifood/force-poll", async (req, res) => {
+    try {
+      await runBackgroundPollingCycle();
+      return res.json({ status: "success", polledAt: new Date().toISOString() });
+    } catch (err: any) {
+      return res.status(500).json({ status: "error", message: err.message });
+    }
+  });
 
   // iFood Webhook Endpoint (Supports Webhook protocol in addition to Polling)
   app.post("/api/ifood/webhook", express.json(), async (req, res) => {
@@ -313,7 +323,7 @@ async function startServer() {
         })
       });
 
-      if (confirmResponse.ok) {
+      if (confirmResponse.ok || confirmResponse.status === 202 || confirmResponse.status === 200 || confirmResponse.status === 409) {
         // Drain events immediately to capture resulting CONFIRMED event for Firefly Audit
         drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
 
@@ -323,11 +333,10 @@ async function startServer() {
         });
       } else {
         const errText = await confirmResponse.text();
-        console.warn("[iFood Confirm] Falha na API oficial, retornando sucesso assistido de homologação:", errText);
-        return res.json({
-          success: true,
-          simulated: true,
-          message: `Pedido ${orderNumber || id} confirmado com sucesso! (Registrado no iFood Developer)`
+        console.error("[iFood Confirm] Falha na API oficial do iFood:", errText);
+        return res.status(confirmResponse.status).json({
+          success: false,
+          message: `Falha na API do iFood (${confirmResponse.status}): ${errText}`
         });
       }
     } catch (error: any) {
@@ -335,6 +344,87 @@ async function startServer() {
       return res.status(500).json({
         success: false,
         message: `Erro interno ao confirmar pedido no iFood: ${error.message}`
+      });
+    }
+  });
+
+  // iFood Conclude Order Endpoint
+  app.post("/api/ifood/orders/:id/conclude", async (req, res) => {
+    const { id } = req.params;
+    const { clientId, clientSecret, merchantId, orderNumber, sandbox } = req.body;
+    updateIFoodCredentials(clientId, clientSecret, merchantId);
+
+    if (!clientId || !clientSecret || !merchantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Configuração do iFood incompleta. Forneça Client ID, Client Secret e Merchant ID."
+      });
+    }
+
+    if (sandbox) {
+      console.log(`[iFood Sandbox] Simulando conclusão para pedido ${orderNumber || id}`);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      return res.json({
+        success: true,
+        message: `[iFood Sandbox] Pedido Nº ${orderNumber || id} concluído com sucesso!`
+      });
+    }
+
+    try {
+      console.log(`[iFood Conclude] Concluindo pedido ${id} (Nº ${orderNumber})...`);
+
+      const tokenResponse = await fetch("https://merchant-api.ifood.com.br/authentication/v1.0/oauth/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          grantType: "client_credentials",
+          clientId,
+          clientSecret
+        }).toString()
+      });
+
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error("[iFood Conclude] Erro de autenticação:", errorText);
+        return res.status(401).json({
+          success: false,
+          message: "Falha na autenticação com as credenciais do iFood."
+        });
+      }
+
+      const tokenData = (await tokenResponse.json()) as { accessToken: string };
+      const accessToken = tokenData.accessToken;
+
+      const concludeResponse = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${id}/conclude`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({})
+      });
+
+      if (concludeResponse.ok || concludeResponse.status === 202 || concludeResponse.status === 200 || concludeResponse.status === 409) {
+        drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
+        return res.json({
+          success: true,
+          message: `Pedido ${orderNumber || id} concluído com sucesso no iFood!`
+        });
+      } else {
+        const errText = await concludeResponse.text();
+        console.error("[iFood Conclude] Falha na API oficial do iFood:", errText);
+        return res.status(concludeResponse.status).json({
+          success: false,
+          message: `Falha na API do iFood (${concludeResponse.status}): ${errText}`
+        });
+      }
+    } catch (error: any) {
+      console.error("[iFood Conclude] Erro:", error);
+      return res.status(500).json({
+        success: false,
+        message: `Erro interno ao concluir pedido no iFood: ${error.message}`
       });
     }
   });
@@ -504,14 +594,11 @@ app.post("/api/ifood/dispatch", async (req, res) => {
         });
       } else {
         const errBody = await dispatchResponse.text();
-        console.warn("[iFood] Falha ao despachar na API oficial, retornando sucesso assistido:", errBody);
+        console.error("[iFood] Falha ao despachar na API oficial:", errBody);
         
-        return res.json({
-          success: true,
-          simulated: true,
-          customerName: customerName || "Cliente Teste iFood",
-          deliveryAddress: deliveryAddress || "Rua Heitor Penteado, 1420 - Sumarezinho, São Paulo",
-          message: `Conexão iFood estabelecida! Token gerado com sucesso.`
+        return res.status(dispatchResponse.status).json({
+          success: false,
+          message: `Falha ao despachar no iFood (${dispatchResponse.status}): ${errBody}`
         });
       }
     } catch (error: any) {
