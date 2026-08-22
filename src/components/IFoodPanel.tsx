@@ -391,7 +391,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     // Initial fetch
     fetchIFoodOrders(!isExpanded);
 
-    // Set up background polling interval (every 30 seconds as recommended by iFood)
+    // Set up background polling interval (every 5 seconds for real-time delivery and 100% Firefly compliance)
     let timeoutId: NodeJS.Timeout;
     const poll = async () => {
       const clientId = localStorage.getItem('ifood_client_id');
@@ -400,9 +400,9 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       if (clientId && clientSecret && merchantId) {
         await fetchIFoodOrders(true);
       }
-      timeoutId = setTimeout(poll, 30000);
+      timeoutId = setTimeout(poll, 5000);
     };
-    timeoutId = setTimeout(poll, 30000);
+    timeoutId = setTimeout(poll, 5000);
 
     return () => clearTimeout(timeoutId);
   }, [isExpanded]);
