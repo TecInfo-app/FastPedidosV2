@@ -1015,25 +1015,27 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                     const status = getOrderStatus(order);
 
                     return (
-                      <>
-                        {status === 'confirmed' && !isAssignedViaIFoodDelivery && !isAlreadyAssigned && (
-                          <div className="bg-indigo-50 border border-indigo-200 p-2.5 rounded-xl flex items-center gap-2">
-                            <Check className="w-4 h-4 text-indigo-600 stroke-[3] shrink-0" />
+                      <div className="space-y-3">
+                        {status === 'confirmed' && (
+                          <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-xl flex items-center gap-2">
+                            <Check className="w-4 h-4 text-blue-600 stroke-[3] shrink-0" />
                             <div>
-                              <span className="text-[10px] uppercase font-black tracking-wider text-indigo-900 block">Status: Confirmado</span>
-                              <span className="text-xs text-indigo-800 font-bold">Pedido confirmado no iFood</span>
+                              <span className="text-[10px] uppercase font-black tracking-wider text-blue-900 block">Status: Confirmado / Em Preparo</span>
+                              <span className="text-xs text-blue-800 font-bold">Pedido confirmado no iFood</span>
                             </div>
                           </div>
                         )}
 
-                        {status === 'concluded' ? (
+                        {status === 'concluded' && (
                           <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl space-y-1">
                             <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
                               <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Status: Concluído
                             </span>
                             <p className="text-xs text-emerald-900 font-extrabold">Pedido Concluído (iFood)</p>
                           </div>
-                        ) : status === 'cancelled' ? (
+                        )}
+
+                        {status === 'cancelled' && (
                           <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-xl space-y-3 text-center">
                             <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
                               <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
@@ -1053,115 +1055,87 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                               <span>Reativar / Descancelar Pedido</span>
                             </button>
                           </div>
-                        ) : status === 'dispatched' ? (
-                          isAssignedViaIFoodDelivery ? (
-                            <div className="bg-rose-50/80 border border-rose-200 p-3 rounded-xl space-y-3">
-                              <div>
-                                <span className="text-[10px] uppercase font-black tracking-widest text-rose-800 flex items-center gap-1">
-                                  <Check className="w-3.5 h-3.5 text-rose-600 stroke-[3]" /> Motoboy iFood Vinculado
-                                </span>
-                                <p className="text-xs text-slate-800 font-extrabold">
-                                  Entregador: {(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}
-                                </p>
-                              </div>
-                              <button
-                                onClick={() => handleConcludeIFoodOrder(order.id, order.orderNumber)}
-                                disabled={actionLoading === order.id + '-conclude'}
-                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                              >
-                                <Check className="w-4 h-4 text-white" />
-                                <span>Marcar como Concluído</span>
-                              </button>
-                            </div>
-                          ) : isAlreadyAssigned ? (
-                            <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-3">
-                              <div>
-                                <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
-                                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Despachado (Motoboy da Casa)
-                                </span>
-                                <p className="text-xs text-slate-800 font-extrabold">Entregador: {assignedInHouseOrder.motoboyName}</p>
-                              </div>
-                              <button
-                                onClick={() => handleConcludeIFoodOrder(order.id, order.orderNumber)}
-                                disabled={actionLoading === order.id + '-conclude'}
-                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                              >
-                                <Check className="w-4 h-4 text-white" />
-                                <span>Marcar como Concluído</span>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-3">
-                              <div>
-                                <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
-                                  <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
-                                </span>
-                                <p className="text-xs text-amber-900 font-extrabold">Status: Despachado com sucesso</p>
-                              </div>
-                              <button
-                                onClick={() => handleConcludeIFoodOrder(order.id, order.orderNumber)}
-                                disabled={actionLoading === order.id + '-conclude'}
-                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                              >
-                                <Check className="w-4 h-4 text-white" />
-                                <span>Marcar como Concluído</span>
-                              </button>
-                            </div>
-                          )
-                        ) : (
-                    <div className="space-y-2 pt-1">
-                      <button
-                        onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
-                        disabled={actionLoading === order.id + '-confirm'}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <Check className="w-4 h-4 stroke-[3]" />
-                        <span>Confirmar Pedido (iFood)</span>
-                      </button>
+                        )}
 
-                      <button
-                        onClick={() => handleDispatchOfficial(order.id, order.orderNumber)}
-                        disabled={actionLoading === order.id + '-dispatch'}
-                        className="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-extrabold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <Bike className="w-4 h-4" />
-                        <span>Despachar Pedido (iFood)</span>
-                      </button>
+                        {status === 'dispatched' && (
+                          <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-1">
+                            <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
+                            </span>
+                            <p className="text-xs text-amber-900 font-extrabold">
+                              {isAssignedViaIFoodDelivery 
+                                ? `Motoboy iFood: ${(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}`
+                                : isAlreadyAssigned 
+                                  ? `Motoboy da Casa: ${assignedInHouseOrder.motoboyName}`
+                                  : "Status: Despachado com sucesso"}
+                            </p>
+                          </div>
+                        )}
 
-                      <button
-                        onClick={() => handleRequestEntregaFacil(order.id, order.orderNumber)}
-                        disabled={isDeliveryLoading}
-                        className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <Bike className="w-4 h-4 text-white" />
-                        <span>Chamar Motoboy iFood (Entrega Fácil)</span>
-                      </button>
+                        {/* Botões de Ação Sempre Acessíveis para Qualquer Estado */}
+                        <div className="space-y-2 pt-1">
+                          {status !== 'confirmed' && status !== 'dispatched' && status !== 'concluded' && (
+                            <button
+                              onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
+                              disabled={actionLoading === order.id + '-confirm'}
+                              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            >
+                              <Check className="w-4 h-4 stroke-[3]" />
+                              <span>Confirmar Pedido (iFood)</span>
+                            </button>
+                          )}
 
-                      <button
-                        onClick={async () => {
-                          // 1. Despachar oficialmente o pedido no iFood (envia READY_TO_PICKUP e DISPATCH)
-                          await handleDispatchOfficial(order.id, order.orderNumber);
-                          // 2. Vincular ao motoboy interno do sistema local
-                          onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress);
-                          setSelectedOrderForModal(null);
-                        }}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                      >
-                        <Bike className="w-4 h-4" />
-                        <span>Enviar p/ Motoboy da Casa</span>
-                      </button>
+                          <button
+                            onClick={() => handleDispatchOfficial(order.id, order.orderNumber)}
+                            disabled={actionLoading === order.id + '-dispatch'}
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-extrabold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                          >
+                            <Bike className="w-4 h-4" />
+                            <span>Despachar Pedido (iFood)</span>
+                          </button>
 
-                      <button
-                        onClick={() => handleCancelIFoodOrder(order.id, order.orderNumber)}
-                        disabled={actionLoading === order.id + '-cancel'}
-                        className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <XCircle className="w-4 h-4 text-rose-600" />
-                        <span>Cancelar Pedido no iFood</span>
-                      </button>
-                    </div>
-                  )}
-                      </>
+                          <button
+                            onClick={() => handleRequestEntregaFacil(order.id, order.orderNumber)}
+                            disabled={isDeliveryLoading}
+                            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                          >
+                            <Bike className="w-4 h-4 text-white" />
+                            <span>Chamar Motoboy iFood (Entrega Fácil)</span>
+                          </button>
+
+                          <button
+                            onClick={async () => {
+                              await handleDispatchOfficial(order.id, order.orderNumber);
+                              onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress);
+                              setSelectedOrderForModal(null);
+                            }}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                          >
+                            <Bike className="w-4 h-4" />
+                            <span>Enviar p/ Motoboy da Casa</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleConcludeIFoodOrder(order.id, order.orderNumber)}
+                            disabled={actionLoading === order.id + '-conclude'}
+                            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                          >
+                            <Check className="w-4 h-4 text-white" />
+                            <span>Concluir Pedido no iFood</span>
+                          </button>
+
+                          {status !== 'cancelled' && (
+                            <button
+                              onClick={() => handleCancelIFoodOrder(order.id, order.orderNumber)}
+                              disabled={actionLoading === order.id + '-cancel'}
+                              className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            >
+                              <XCircle className="w-4 h-4 text-rose-600" />
+                              <span>Cancelar Pedido no iFood</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     );
                   })()}
                 </div>
