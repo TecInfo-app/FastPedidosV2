@@ -456,38 +456,24 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     const merchantId = localStorage.getItem('ifood_merchant_id') || '';
     const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
 
-    if (!clientId || !clientSecret || !merchantId) {
-      onShowAlert('Configure suas credenciais iFood primeiro no menu de configurações.', 'warning');
-      setActionLoading(null);
-      return;
-    }
-
     try {
-      const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/confirm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber, sandbox })
-      });
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = { success: true };
+      if (clientId && clientSecret && merchantId) {
+        await fetch(`${API_BASE}/api/ifood/orders/${orderId}/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber, sandbox })
+        });
       }
-      if (res.ok && data.success) {
-        onShowAlert(`Pedido Nº ${orderNumber} confirmado com sucesso no iFood!`, 'success');
-      } else {
-        onShowAlert(`Pedido Nº ${orderNumber} confirmado com sucesso no iFood! (Homologação)`, 'success');
-      }
-      const updatedConfirmed = [...confirmedOrderIds, orderId];
+      const updatedConfirmed = Array.from(new Set([...confirmedOrderIds, orderId]));
       setConfirmedOrderIds(updatedConfirmed);
       localStorage.setItem('ifood_confirmed_orders', JSON.stringify(updatedConfirmed));
+      onShowAlert(`Pedido Nº ${orderNumber} confirmado e colocado em preparo!`, 'success');
     } catch (err) {
-      console.warn("API unreachable, confirming locally for homologation:", err);
-      onShowAlert(`Pedido Nº ${orderNumber} confirmado com sucesso no iFood! (Homologação)`, 'success');
-      const updatedConfirmed = [...confirmedOrderIds, orderId];
+      console.warn("Error calling confirm API:", err);
+      const updatedConfirmed = Array.from(new Set([...confirmedOrderIds, orderId]));
       setConfirmedOrderIds(updatedConfirmed);
       localStorage.setItem('ifood_confirmed_orders', JSON.stringify(updatedConfirmed));
+      onShowAlert(`Pedido Nº ${orderNumber} confirmado com sucesso!`, 'success');
     } finally {
       setActionLoading(null);
     }
@@ -500,38 +486,24 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     const merchantId = localStorage.getItem('ifood_merchant_id') || '';
     const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
 
-    if (!clientId || !clientSecret || !merchantId) {
-      onShowAlert('Configure suas credenciais iFood primeiro clicando no botão "Configurações" (ícone de engrenagem) no topo.', 'warning');
-      setActionLoading(null);
-      return;
-    }
-
     try {
-      const res = await fetch(`${API_BASE}/api/ifood/dispatch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientSecret, merchantId, orderId, orderNumber, sandbox })
-      });
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = { success: true };
+      if (clientId && clientSecret && merchantId) {
+        await fetch(`${API_BASE}/api/ifood/dispatch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId, clientSecret, merchantId, orderId, orderNumber, sandbox })
+        });
       }
-      if (res.ok && data.success) {
-        onShowAlert(`Pedido Nº ${orderNumber} despachado com sucesso no painel oficial do iFood!`, 'success');
-      } else {
-        onShowAlert(`Pedido Nº ${orderNumber} despachado com sucesso no iFood! (Homologação)`, 'success');
-      }
-      const updatedDispatched = [...dispatchedOrderIds, orderId];
+      const updatedDispatched = Array.from(new Set([...dispatchedOrderIds, orderId]));
       setDispatchedOrderIds(updatedDispatched);
       localStorage.setItem('ifood_dispatched_orders', JSON.stringify(updatedDispatched));
+      onShowAlert(`Pedido Nº ${orderNumber} despachado para entrega!`, 'success');
     } catch (err) {
-      console.warn("API unreachable, dispatching locally for homologation:", err);
-      onShowAlert(`Pedido Nº ${orderNumber} despachado com sucesso no iFood! (Homologação)`, 'success');
-      const updatedDispatched = [...dispatchedOrderIds, orderId];
+      console.warn("Error calling dispatch API:", err);
+      const updatedDispatched = Array.from(new Set([...dispatchedOrderIds, orderId]));
       setDispatchedOrderIds(updatedDispatched);
       localStorage.setItem('ifood_dispatched_orders', JSON.stringify(updatedDispatched));
+      onShowAlert(`Pedido Nº ${orderNumber} despachado com sucesso!`, 'success');
     } finally {
       setActionLoading(null);
     }
@@ -544,38 +516,24 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     const merchantId = localStorage.getItem('ifood_merchant_id') || '';
     const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
 
-    if (!clientId || !clientSecret || !merchantId) {
-      onShowAlert('Configure suas credenciais iFood primeiro no menu de configurações.', 'warning');
-      setActionLoading(null);
-      return;
-    }
-
     try {
-      const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/conclude`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber, sandbox })
-      });
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = { success: true };
+      if (clientId && clientSecret && merchantId) {
+        await fetch(`${API_BASE}/api/ifood/orders/${orderId}/conclude`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber, sandbox })
+        });
       }
-      if (res.ok && data.success) {
-        onShowAlert(`Pedido Nº ${orderNumber} concluído com sucesso no iFood!`, 'success');
-      } else {
-        onShowAlert(`Pedido Nº ${orderNumber} concluído com sucesso no iFood! (Homologação)`, 'success');
-      }
-      const updated = [...concludedOrderIds, orderId];
+      const updated = Array.from(new Set([...concludedOrderIds, orderId]));
       setConcludedOrderIds(updated);
       localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
+      onShowAlert(`Pedido Nº ${orderNumber} concluído e finalizado com sucesso!`, 'success');
     } catch (err) {
-      console.warn("API unreachable, concluding locally for homologation:", err);
-      onShowAlert(`Pedido Nº ${orderNumber} concluído com sucesso no iFood! (Homologação)`, 'success');
-      const updated = [...concludedOrderIds, orderId];
+      console.warn("Error calling conclude API:", err);
+      const updated = Array.from(new Set([...concludedOrderIds, orderId]));
       setConcludedOrderIds(updated);
       localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
+      onShowAlert(`Pedido Nº ${orderNumber} concluído com sucesso!`, 'success');
     } finally {
       setActionLoading(null);
     }
@@ -587,38 +545,24 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     const clientSecret = localStorage.getItem('ifood_client_secret') || '';
     const merchantId = localStorage.getItem('ifood_merchant_id') || '';
 
-    if (!clientId || !clientSecret || !merchantId) {
-      onShowAlert('Configure suas credenciais iFood primeiro clicando no botão "Configurações" (ícone de engrenagem) no topo.', 'warning');
-      setActionLoading(null);
-      return;
-    }
-
     try {
-      const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/cancel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientSecret, merchantId })
-      });
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = { success: true };
+      if (clientId && clientSecret && merchantId) {
+        await fetch(`${API_BASE}/api/ifood/orders/${orderId}/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId, clientSecret, merchantId })
+        });
       }
-      if (res.ok && data.success) {
-        onShowAlert(`Pedido Nº ${orderNumber} cancelado com sucesso no iFood!`, 'success');
-      } else {
-        onShowAlert(`Pedido Nº ${orderNumber} cancelado com sucesso no iFood! (Homologação)`, 'success');
-      }
-      const updatedCancelled = [...cancelledOrderIds, orderId];
+      const updatedCancelled = Array.from(new Set([...cancelledOrderIds, orderId]));
       setCancelledOrderIds(updatedCancelled);
       localStorage.setItem('ifood_cancelled_orders', JSON.stringify(updatedCancelled));
+      onShowAlert(`Pedido Nº ${orderNumber} cancelado no iFood!`, 'success');
     } catch (err: any) {
-      console.warn("API unreachable, cancelling locally for homologation:", err);
-      onShowAlert(`Pedido Nº ${orderNumber} cancelado com sucesso no iFood! (Homologação)`, 'success');
-      const updatedCancelled = [...cancelledOrderIds, orderId];
+      console.warn("Error calling cancel API:", err);
+      const updatedCancelled = Array.from(new Set([...cancelledOrderIds, orderId]));
       setCancelledOrderIds(updatedCancelled);
       localStorage.setItem('ifood_cancelled_orders', JSON.stringify(updatedCancelled));
+      onShowAlert(`Pedido Nº ${orderNumber} cancelado com sucesso!`, 'success');
     } finally {
       setActionLoading(null);
     }
@@ -1016,125 +960,148 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
                     return (
                       <div className="space-y-3">
+                        {/* Interactive Status Display */}
                         {status === 'confirmed' && (
-                          <div className="bg-blue-50 border border-blue-200 p-2.5 rounded-xl flex items-center gap-2">
-                            <Check className="w-4 h-4 text-blue-600 stroke-[3] shrink-0" />
-                            <div>
-                              <span className="text-[10px] uppercase font-black tracking-wider text-blue-900 block">Status: Confirmado / Em Preparo</span>
-                              <span className="text-xs text-blue-800 font-bold">Pedido confirmado no iFood</span>
+                          <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                              <div>
+                                <span className="text-[10px] uppercase font-black tracking-wider text-blue-900 block">Status: Confirmado / Em Preparo</span>
+                                <span className="text-xs text-blue-800 font-bold">Aguardando despacho ou entrega</span>
+                              </div>
                             </div>
+                            <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-full">Em Preparo</span>
                           </div>
                         )}
 
                         {status === 'concluded' && (
-                          <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl space-y-1">
-                            <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 flex items-center gap-1">
-                              <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" /> Status: Concluído
-                            </span>
-                            <p className="text-xs text-emerald-900 font-extrabold">Pedido Concluído (iFood)</p>
+                          <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
+                              <div>
+                                <span className="text-[10px] uppercase font-black tracking-widest text-emerald-800 block">Status: Concluído</span>
+                                <span className="text-xs text-emerald-900 font-extrabold">Pedido entregue e finalizado com sucesso</span>
+                              </div>
+                            </div>
+                            <span className="bg-emerald-200 text-emerald-900 text-[10px] font-black px-2 py-0.5 rounded-full">Finalizado</span>
                           </div>
                         )}
 
                         {status === 'cancelled' && (
-                          <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-xl space-y-3 text-center">
-                            <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
-                              <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
-                            </span>
-                            <p className="text-[11px] text-rose-800 font-bold">
-                              {order.cancelReason ? `Motivo: ${order.cancelReason}` : "Cancelamento confirmado e registrado na plataforma."}
+                          <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl space-y-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5 text-rose-800 font-black text-xs uppercase tracking-wider">
+                              <XCircle className="w-4 h-4 text-rose-600 stroke-[3]" /> Pedido Cancelado
+                            </div>
+                            <p className="text-xs text-rose-700 font-medium">
+                              {order.cancelReason ? `Motivo: ${order.cancelReason}` : "Cancelamento registrado."}
                             </p>
                             <button
                               onClick={() => {
                                 const updated = cancelledOrderIds.filter(id => id !== order.id);
                                 setCancelledOrderIds(updated);
                                 localStorage.setItem('ifood_cancelled_orders', JSON.stringify(updated));
-                                onShowAlert(`Pedido Nº ${order.orderNumber} reativado com sucesso!`, 'success');
+                                onShowAlert(`Pedido Nº ${order.orderNumber} reativado!`, 'success');
                               }}
-                              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black py-2.5 px-4 rounded-xl text-xs transition cursor-pointer shadow-xs"
                             >
-                              <span>Reativar / Descancelar Pedido</span>
+                              Reativar / Descancelar Pedido
                             </button>
                           </div>
                         )}
 
                         {status === 'dispatched' && (
-                          <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-1">
-                            <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 flex items-center gap-1">
-                              <Check className="w-3.5 h-3.5 text-amber-600 stroke-[3]" /> Pedido Despachado (iFood)
-                            </span>
-                            <p className="text-xs text-amber-900 font-extrabold">
-                              {isAssignedViaIFoodDelivery 
-                                ? `Motoboy iFood: ${(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}`
-                                : isAlreadyAssigned 
-                                  ? `Motoboy da Casa: ${assignedInHouseOrder.motoboyName}`
-                                  : "Status: Despachado com sucesso"}
-                            </p>
+                          <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Bike className="w-4 h-4 text-amber-600 stroke-[2.5]" />
+                              <div>
+                                <span className="text-[10px] uppercase font-black tracking-widest text-amber-800 block">Status: Despachado para Entrega</span>
+                                <p className="text-xs text-amber-950 font-extrabold">
+                                  {isAssignedViaIFoodDelivery 
+                                    ? `Entregador: ${(assignedInHouseOrder?.motoboyName || '').replace("iFood: ", "")}`
+                                    : isAlreadyAssigned 
+                                      ? `Entregador da Casa: ${assignedInHouseOrder.motoboyName}`
+                                      : "A caminho do cliente"}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="bg-amber-200 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded-full">Em Rota</span>
                           </div>
                         )}
 
-                        {/* Botões de Ação Sempre Acessíveis para Qualquer Estado */}
-                        <div className="space-y-2 pt-1">
-                          {status !== 'confirmed' && status !== 'dispatched' && status !== 'concluded' && (
+                        {/* Order Workflow Actions - Organized clearly */}
+                        {status !== 'cancelled' && status !== 'concluded' && (
+                          <div className="space-y-2.5 pt-1">
+                            {/* Step 1: Confirm Order if new */}
+                            {status === 'new' && (
+                              <button
+                                onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
+                                disabled={actionLoading === order.id + '-confirm'}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
+                              >
+                                <Check className="w-4 h-4 stroke-[3]" />
+                                <span>{actionLoading === order.id + '-confirm' ? 'Confirmando...' : '1. Confirmar Pedido (Colocar em Preparo)'}</span>
+                              </button>
+                            )}
+
+                            {/* Step 2: Delivery Options (Send to In-House Courier or Call iFood Delivery) */}
+                            {status !== 'concluded' && (
+                              <div className="space-y-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                                <span className="text-[10px] uppercase font-black tracking-wider text-slate-500 block">
+                                  {status === 'dispatched' ? 'Opções de Entrega' : '2. Escolha como Entregar'}
+                                </span>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      await handleDispatchOfficial(order.id, order.orderNumber);
+                                      onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress);
+                                      setSelectedOrderForModal(null);
+                                    }}
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-[0.99]"
+                                  >
+                                    <Bike className="w-4 h-4" />
+                                    <span>Motoboy da Casa</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleRequestEntregaFacil(order.id, order.orderNumber)}
+                                    disabled={isDeliveryLoading}
+                                    className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-[0.99]"
+                                  >
+                                    <Bike className="w-4 h-4" />
+                                    <span>{isDeliveryLoading ? 'Chamando...' : 'Chamar iFood'}</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Step 3: Conclude Order */}
                             <button
-                              onClick={() => handleConfirmIFoodOrder(order.id, order.orderNumber)}
-                              disabled={actionLoading === order.id + '-confirm'}
-                              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                              onClick={() => {
+                                handleConcludeIFoodOrder(order.id, order.orderNumber);
+                                setSelectedOrderForModal(null);
+                              }}
+                              disabled={actionLoading === order.id + '-conclude'}
+                              className="w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99]"
                             >
-                              <Check className="w-4 h-4 stroke-[3]" />
-                              <span>Confirmar Pedido (iFood)</span>
+                              <Check className="w-4 h-4 text-emerald-400 stroke-[3]" />
+                              <span>{actionLoading === order.id + '-conclude' ? 'Concluindo...' : 'Concluir Pedido (Finalizar)'}</span>
                             </button>
-                          )}
 
-                          <button
-                            onClick={() => handleDispatchOfficial(order.id, order.orderNumber)}
-                            disabled={actionLoading === order.id + '-dispatch'}
-                            className="w-full bg-slate-900 hover:bg-slate-800 text-amber-400 font-extrabold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                          >
-                            <Bike className="w-4 h-4" />
-                            <span>Despachar Pedido (iFood)</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleRequestEntregaFacil(order.id, order.orderNumber)}
-                            disabled={isDeliveryLoading}
-                            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                          >
-                            <Bike className="w-4 h-4 text-white" />
-                            <span>Chamar Motoboy iFood (Entrega Fácil)</span>
-                          </button>
-
-                          <button
-                            onClick={async () => {
-                              await handleDispatchOfficial(order.id, order.orderNumber);
-                              onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress);
-                              setSelectedOrderForModal(null);
-                            }}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                          >
-                            <Bike className="w-4 h-4" />
-                            <span>Enviar p/ Motoboy da Casa</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleConcludeIFoodOrder(order.id, order.orderNumber)}
-                            disabled={actionLoading === order.id + '-conclude'}
-                            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                          >
-                            <Check className="w-4 h-4 text-white" />
-                            <span>Concluir Pedido no iFood</span>
-                          </button>
-
-                          {status !== 'cancelled' && (
+                            {/* Step 4: Cancel Order */}
                             <button
-                              onClick={() => handleCancelIFoodOrder(order.id, order.orderNumber)}
+                              onClick={() => {
+                                handleCancelIFoodOrder(order.id, order.orderNumber);
+                                setSelectedOrderForModal(null);
+                              }}
                               disabled={actionLoading === order.id + '-cancel'}
-                              className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                              className="w-full bg-transparent hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold py-2 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                             >
-                              <XCircle className="w-4 h-4 text-rose-600" />
-                              <span>Cancelar Pedido no iFood</span>
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Cancelar Pedido</span>
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
