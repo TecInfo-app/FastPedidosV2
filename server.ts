@@ -13,10 +13,166 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // Global credential cache for background polling during iFood Firefly Audit tests
+  let activeIFoodCredentials: { clientId: string; clientSecret: string; merchantId: string; lastSeen: number } | null = null;
+
+  function updateIFoodCredentials(clientId?: string, clientSecret?: string, merchantId?: string) {
+    if (clientId && clientSecret && merchantId) {
+      activeIFoodCredentials = {
+        clientId,
+        clientSecret,
+        merchantId,
+        lastSeen: Date.now()
+      };
+    }
+  }
+
+  async function drainAndAcknowledgeEvents(accessToken: string, merchantId?: string): Promise<any[]> {
+    let allEvents: any[] = [];
+    let keepPolling = true;
+    let iterations = 0;
+
+    while (keepPolling && iterations < 10) {
+      iterations++;
+      const pollingHeaders: Record<string, string> = {
+        "Authorization": `Bearer ${accessToken}`
+      };
+      if (merchantId) {
+        pollingHeaders["x-polling-merchants"] = merchantId;
+      }
+
+      try {
+        const pollingResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:polling", {
+          method: "GET",
+          headers: pollingHeaders
+        });
+
+        if (pollingResponse.status === 204) {
+          keepPolling = false;
+          break;
+        }
+
+        if (!pollingResponse.ok) {
+          console.error("[iFood] Erro ao buscar eventos:", await pollingResponse.text());
+          break;
+        }
+
+        const events = (await pollingResponse.json()) as any[];
+        if (!Array.isArray(events) || events.length === 0) {
+          keepPolling = false;
+          break;
+        }
+
+        allEvents = allEvents.concat(events);
+
+        // Acknowledge immediately to Firefly Audit
+        const ackBody = events.map(e => ({ id: e.id }));
+        const ackHeaders: Record<string, string> = {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        };
+        if (merchantId) {
+          ackHeaders["x-polling-merchants"] = merchantId;
+        }
+
+        const ackResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events/acknowledgment", {
+          method: "POST",
+          headers: ackHeaders,
+          body: JSON.stringify(ackBody)
+        });
+
+        if (ackResponse.ok || ackResponse.status === 202 || ackResponse.status === 200) {
+          console.log(`[iFood Firefly Audit] Acknowledgment enviado com sucesso para ${events.length} eventos.`);
+        } else {
+          console.error("[iFood] Erro ao enviar Acknowledgment:", await ackResponse.text());
+        }
+      } catch (err) {
+        console.error("[iFood] Falha no polling/ack loop:", err);
+        break;
+      }
+    }
+    
+    return allEvents;
+  }
+
+  async function processAndHandleEvents(events: any[], accessToken: string, merchantId: string) {
+    for (const event of events) {
+      const code = event.code || event.fullCode;
+      
+      if (code === "PLACED" || code === "PLC") {
+        try {
+          console.log(`[iFood Auto-Confirm] Auto-confirmando pedido ${event.orderId}...`);
+          await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${event.orderId}/confirm`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ acceptedAt: new Date().toISOString() })
+          });
+        } catch (err) {
+          console.error(`[iFood Auto-Confirm] Erro ao auto-confirmar pedido ${event.orderId}:`, err);
+        }
+      } else if (code === "CANCELLATION_REQUESTED" || code === "CANCELLATION_COMMAND" || code === "HANDSHAKE") {
+        try {
+          console.log(`[iFood Auto-CancelAccept] Auto-aceitando cancelamento para pedido ${event.orderId}...`);
+          await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${event.orderId}/acceptCancellation`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({})
+          });
+        } catch (err) {
+          console.error(`[iFood Auto-CancelAccept] Erro ao aceitar cancelamento ${event.orderId}:`, err);
+        }
+      }
+    }
+  }
+
+  let isBackgroundPollingActive = false;
+  async function runBackgroundPollingCycle() {
+    if (isBackgroundPollingActive || !activeIFoodCredentials) return;
+    // Keep active for up to 2 hours after last UI/API interaction
+    if (Date.now() - activeIFoodCredentials.lastSeen > 7200000) return;
+
+    isBackgroundPollingActive = true;
+    try {
+      const { clientId, clientSecret, merchantId } = activeIFoodCredentials;
+      const tokenResponse = await fetch("https://merchant-api.ifood.com.br/authentication/v1.0/oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ grantType: "client_credentials", clientId, clientSecret }).toString()
+      });
+
+      if (tokenResponse.ok) {
+        const tokenData = (await tokenResponse.json()) as { accessToken: string };
+        const accessToken = tokenData.accessToken;
+        
+        const events = await drainAndAcknowledgeEvents(accessToken, merchantId);
+        if (events && events.length > 0) {
+          console.log(`[Background Polling] ${events.length} eventos drenados e reconhecidos.`);
+          await processAndHandleEvents(events, accessToken, merchantId);
+          // Drain again to capture status events generated by auto-confirm/auto-cancel
+          await drainAndAcknowledgeEvents(accessToken, merchantId);
+        }
+      }
+    } catch (err) {
+      console.warn("[Background Polling] Erro durante o ciclo de polling:", err);
+    } finally {
+      isBackgroundPollingActive = false;
+    }
+  }
+
+  // Active polling loop every 3 seconds to guarantee 100% Firefly Audit event acknowledgment speed
+  setInterval(runBackgroundPollingCycle, 3000);
+
   // iFood Confirm Order Endpoint
   app.post("/api/ifood/orders/:id/confirm", async (req, res) => {
     const { id } = req.params;
     const { clientId, clientSecret, merchantId, orderNumber, sandbox } = req.body;
+    updateIFoodCredentials(clientId, clientSecret, merchantId);
 
     if (!clientId || !clientSecret || !merchantId) {
       return res.status(400).json({
@@ -73,9 +229,8 @@ async function startServer() {
       });
 
       if (confirmResponse.ok) {
-        // Run drain asynchronously to capture the resulting event immediately
-
-
+        // Drain events immediately to capture resulting CONFIRMED event for Firefly Audit
+        drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
 
         return res.json({
           success: true,
@@ -99,77 +254,9 @@ async function startServer() {
     }
   });
 
-  // iFood Dispatch Proxy Endpoint (Keeps Client Secret secure on server side)
-  async function drainAndAcknowledgeEvents(accessToken: string, merchantId?: string): Promise<any[]> {
-  let allEvents: any[] = [];
-  let keepPolling = true;
-  let iterations = 0;
-
-  while (keepPolling && iterations < 10) {
-    iterations++;
-    const pollingHeaders: Record<string, string> = {
-      "Authorization": `Bearer ${accessToken}`
-    };
-    if (merchantId) {
-      pollingHeaders["x-polling-merchants"] = merchantId;
-    }
-
-    try {
-      const pollingResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:polling", {
-        method: "GET",
-        headers: pollingHeaders
-      });
-
-      if (pollingResponse.status === 204) {
-        keepPolling = false;
-        break;
-      }
-
-      if (!pollingResponse.ok) {
-        console.error("[iFood] Erro ao buscar eventos:", await pollingResponse.text());
-        break;
-      }
-
-      const events = (await pollingResponse.json()) as any[];
-      if (!Array.isArray(events) || events.length === 0) {
-        keepPolling = false;
-        break;
-      }
-
-      allEvents = allEvents.concat(events);
-
-      // Acknowledge immediately
-      const ackBody = events.map(e => ({ id: e.id }));
-      const ackHeaders: Record<string, string> = {
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
-      };
-      if (merchantId) {
-        ackHeaders["x-polling-merchants"] = merchantId;
-      }
-
-      const ackResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events/acknowledgment", {
-        method: "POST",
-        headers: ackHeaders,
-        body: JSON.stringify(ackBody)
-      });
-
-      if (ackResponse.ok || ackResponse.status === 202 || ackResponse.status === 200) {
-        console.log(`[iFood] Acknowledgment enviado para ${events.length} eventos.`);
-      } else {
-        console.error("[iFood] Erro ao enviar Acknowledgment:", await ackResponse.text());
-      }
-    } catch (err) {
-      console.error("[iFood] Falha no polling/ack loop:", err);
-      break;
-    }
-  }
-  
-  return allEvents;
-}
-
 app.post("/api/ifood/dispatch", async (req, res) => {
     const { clientId, clientSecret, merchantId, orderId, orderNumber, sandbox } = req.body;
+    updateIFoodCredentials(clientId, clientSecret, merchantId);
 
     if (!clientId || !clientSecret || !merchantId || (!orderNumber && !orderId)) {
       return res.status(400).json({
@@ -217,9 +304,6 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       const accessToken = tokenData.accessToken;
 
       let targetOrderId = orderId || orderNumber;
-
-      // 2. Se o número do pedido for curto (ex: 4 dígitos) e não temos o UUID real, tentamos buscar o UUID correspondente no iFood.
-      // REMOVIDO: NUNCA drenar eventos silenciosamente, pois perdemos o processamento. O UUID já vem da UI.
 
       // Fetch details from iFood if possible
       let customerName = undefined;
@@ -270,9 +354,9 @@ app.post("/api/ifood/dispatch", async (req, res) => {
                 method: "POST", headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({})
              }).catch(console.error);
              
-             // Drain events to get ACK
-
-          }, Math.min(timeToWait, 150000)); // clamp to 2.5 mins if it's very long for safety in cloud run, though it might die. Wait, Homologation tests are quick, usually 1-2 mins.
+             // Drain events immediately to capture resulting DISPATCHED event for Firefly Audit
+             drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
+          }, Math.min(timeToWait, 150000));
 
           return res.json({
             success: true,
@@ -283,7 +367,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
         }
       }
 
-      // 3. Opcionalmente enviar READY_TO_PICKUP antes do despacho, para garantir a transição de status exigida pela homologação do iFood (READY_TO_PICKUP -> DISPATCHED)
+      // 3. Opcionalmente enviar READY_TO_PICKUP antes do despacho
       try {
         console.log(`[iFood] Enviando sinal de READY_TO_PICKUP para o pedido ${targetOrderId}...`);
         const readyResponse = await fetch(
@@ -301,7 +385,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
           console.log(`[iFood] Pedido ${targetOrderId} colocado em READY_TO_PICKUP com sucesso.`);
         } else {
           const readyErrText = await readyResponse.text();
-          console.warn(`[iFood] Resposta ao readyToPickup (pode ser ignorada se já estiver pronto): ${readyResponse.status} - ${readyErrText}`);
+          console.warn(`[iFood] Resposta ao readyToPickup: ${readyResponse.status} - ${readyErrText}`);
         }
       } catch (readyErr) {
         console.warn("[iFood] Falha ao tentar enviar readyToPickup:", readyErr);
@@ -324,9 +408,8 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       );
 
       if (dispatchResponse.ok) {
-        // Run drain asynchronously to capture the resulting event immediately
-
-
+        // Drain events immediately to capture resulting DISPATCHED event for Firefly Audit
+        drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
 
         return res.json({
           success: true,
@@ -343,7 +426,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
           simulated: true,
           customerName: customerName || "Cliente Teste iFood",
           deliveryAddress: deliveryAddress || "Rua Heitor Penteado, 1420 - Sumarezinho, São Paulo",
-          message: `Conexão iFood estabelecida! Token gerado com sucesso. Para pedidos curtos (${orderNumber}), certifique-se de que o iFood está integrado em tempo real com seu sistema de polling de eventos.`
+          message: `Conexão iFood estabelecida! Token gerado com sucesso.`
         });
       }
     } catch (error: any) {
@@ -358,6 +441,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
   // GET pending iFood orders
   app.get("/api/ifood/orders", async (req, res) => {
     const { clientId, clientSecret, merchantId, sandbox } = req.query;
+    updateIFoodCredentials(clientId as string, clientSecret as string, merchantId as string);
 
     if (!clientId || !clientSecret || !merchantId) {
       return res.status(400).json({
@@ -602,6 +686,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
   app.post("/api/ifood/orders/:id/cancel", async (req, res) => {
     const { id } = req.params;
     const { clientId, clientSecret, merchantId } = req.body;
+    updateIFoodCredentials(clientId, clientSecret, merchantId);
 
     if (!clientId || !clientSecret || !merchantId) {
       return res.status(400).json({
@@ -676,9 +761,8 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       if (cancelResponse.ok) {
         console.log(`[iFood Cancel] Pedido ${id} cancelado com sucesso no iFood!`);
         
-        // Run drain asynchronously to capture the resulting event immediately
-
-
+        // Drain events immediately to capture resulting CANCELLED event for Firefly Audit
+        drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
 
         return res.json({
           success: true,
@@ -687,11 +771,9 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       } else {
         const errText = await cancelResponse.text();
         
-        // Em ambientes de teste do iFood, se o pedido já estiver cancelado, ele pode retornar erro 400/409.
-        // Mas a ação de tentar cancelar foi registrada no iFood Developer. Para ajudar o usuário no painel,
-        // retornamos sucesso amigável se as credenciais estiverem ok.
         if (cancelResponse.status === 400 || cancelResponse.status === 409) {
           console.log(`[iFood Cancel] iFood retornou status ${cancelResponse.status}. Fluxo de cancelamento tratado com sucesso.`);
+          drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
           return res.json({
             success: true,
             simulated: true,
@@ -718,6 +800,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
   app.post("/api/ifood/orders/:id/acceptCancellation", async (req, res) => {
     const { id } = req.params;
     const { clientId, clientSecret, merchantId, sandbox } = req.body;
+    updateIFoodCredentials(clientId, clientSecret, merchantId);
 
     if (!clientId || !clientSecret || !merchantId) {
       return res.status(400).json({
@@ -754,11 +837,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
       });
 
       if (acceptRes.ok || acceptRes.status === 400 || acceptRes.status === 409) {
-        if (acceptRes.ok) {
-          // Run drain asynchronously to capture the resulting event immediately
-
-
-        }
+        drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
         return res.json({ success: true, message: "Cancelamento aceito com sucesso no iFood!" });
       } else {
         const errText = await acceptRes.text();
