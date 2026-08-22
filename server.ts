@@ -816,6 +816,15 @@ async function startServer() {
                 scheduledTime = new Date(orderDetails.delivery.deliveryDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
               }
 
+              const ifoodConfirmationCode = 
+                orderDetails.delivery?.deliveryCode ||
+                orderDetails.delivery?.handshakeCode ||
+                orderDetails.delivery?.takeout?.handshakeCode ||
+                (orderDetails.customer?.phone?.number ? String(orderDetails.customer.phone.number).replace(/\D/g, '').slice(-4) : '') ||
+                (orderDetails.customer?.phone ? String(orderDetails.customer.phone).replace(/\D/g, '').slice(-4) : '') ||
+                (event.metadata?.HANDSHAKE_CODE || event.metadata?.handshakeCode || event.metadata?.deliveryCode || event.metadata?.code) ||
+                displayId;
+
               fetchedOrders.push({
                 id: orderDetails.id,
                 orderNumber: displayId,
@@ -826,6 +835,7 @@ async function startServer() {
                 createdAt: "Agora mesmo",
                 entregaFacilRequested: false,
                 entregaFacilStatus: null,
+                confirmationCode: String(ifoodConfirmationCode),
                 isScheduled,
                 scheduledTime,
                 cancelReason: orderCancelReason || undefined,

@@ -90,6 +90,7 @@ export default function App() {
   const [pendingOrderNumber, setPendingOrderNumber] = useState<string | null>(null);
   const [pendingCustomerName, setPendingCustomerName] = useState<string | null>(null);
   const [pendingDeliveryAddress, setPendingDeliveryAddress] = useState<string | null>(null);
+  const [pendingConfirmationCode, setPendingConfirmationCode] = useState<string | null>(null);
   const [pendingMotoboy, setPendingMotoboy] = useState<Motoboy | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
@@ -526,7 +527,12 @@ export default function App() {
   };
 
   // Order Registration Flow
-  const handleStartOrder = (orderNumber: string, customerName?: string, deliveryAddress?: string) => {
+  const handleStartOrder = (
+    orderNumber: string,
+    customerName?: string,
+    deliveryAddress?: string,
+    confirmationCode?: string
+  ) => {
     if (!stores.length || !motoboys.length || !selectedStoreId) {
       const msg = 'Cadastre pelo menos uma Loja e um Motoboy para registrar pedidos.';
       setStatusMessage(msg);
@@ -549,6 +555,7 @@ export default function App() {
     setPendingOrderNumber(orderNumber);
     setPendingCustomerName(finalCustomerName);
     setPendingDeliveryAddress(finalDeliveryAddress);
+    setPendingConfirmationCode(confirmationCode || null);
     setStatusMessage('');
     setMotoboySelectModalOpen(true);
   };
@@ -571,7 +578,7 @@ export default function App() {
       return;
     }
 
-    const codeFromOrder = pendingOrderNumber.replace(/\D/g, '').slice(-4) || pendingOrderNumber.slice(-4);
+    const codeFromOrder = pendingConfirmationCode || pendingOrderNumber.replace(/\D/g, '').slice(-4) || pendingOrderNumber.slice(-4);
     const newOrder: Order = {
       id: generateId(),
       orderNumber: pendingOrderNumber,
@@ -583,7 +590,7 @@ export default function App() {
       customerName: pendingCustomerName || undefined,
       deliveryAddress: pendingDeliveryAddress || undefined,
       deliveryStatus: 'pendente',
-      confirmationCode: codeFromOrder.length === 4 ? codeFromOrder : Math.floor(1000 + Math.random() * 9000).toString(),
+      confirmationCode: codeFromOrder,
     };
 
     if (activeOwnerId) {
@@ -670,6 +677,7 @@ export default function App() {
     setPendingOrderNumber(null);
     setPendingCustomerName(null);
     setPendingDeliveryAddress(null);
+    setPendingConfirmationCode(null);
     setPendingMotoboy(null);
   };
 
@@ -677,10 +685,12 @@ export default function App() {
     orderNumber: string,
     customerName: string,
     deliveryAddress: string,
-    courierName: string
+    courierName: string,
+    confirmationCode?: string
   ) => {
     const storeObj = stores.find((s) => s.id === selectedStoreId) || stores[0];
     const storeName = storeObj ? storeObj.name : 'iFood';
+    const finalCode = confirmationCode || orderNumber.replace(/\D/g, '').slice(-4) || orderNumber.slice(-4);
 
     const newOrder: Order = {
       id: generateId(),
@@ -693,7 +703,7 @@ export default function App() {
       customerName,
       deliveryAddress,
       deliveryStatus: 'pendente',
-      confirmationCode: Math.floor(1000 + Math.random() * 9000).toString(),
+      confirmationCode: finalCode,
     };
 
     if (activeOwnerId) {

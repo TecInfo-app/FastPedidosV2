@@ -92,7 +92,7 @@ export const MotoboyPortal: React.FC<MotoboyPortalProps> = ({
         (cleanInput === validCode1 || cleanInput === validCode2 || cleanInput === order.orderNumber || isFourDigitNumber);
 
       if (!isValid) {
-        onShowAlert('❌ Código de entrega incorreto. Digite um código de 4 dígitos válido.', 'error');
+        onShowAlert('❌ Código de entrega incorreto. Digite o código de 4 dígitos enviado pelo iFood.', 'error');
         return;
       }
     }
@@ -565,7 +565,7 @@ export const MotoboyPortal: React.FC<MotoboyPortalProps> = ({
                               </button>
                             </div>
                             <span className="text-[9px] font-semibold text-slate-500 block mt-1">
-                              Código esperado: <span className="font-mono text-amber-300 font-extrabold">#{order.orderNumber.slice(-4)}</span>
+                              Código iFood: <span className="font-mono text-amber-300 font-extrabold">{order.confirmationCode ? `#${order.confirmationCode}` : `#${order.orderNumber.slice(-4)}`}</span>
                             </span>
                           </div>
 

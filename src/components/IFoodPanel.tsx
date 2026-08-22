@@ -16,6 +16,7 @@ interface IFoodOrder {
     courierPhone: string;
     status: string;
   } | null;
+  confirmationCode?: string;
   isScheduled?: boolean;
   scheduledTime?: string;
   cancelReason?: string;
@@ -26,8 +27,8 @@ interface IFoodOrder {
 interface IFoodPanelProps {
   allOrders: Order[];
   onShowAlert: (message: string, type: 'success' | 'error' | 'info' | 'warning') => void;
-  onAssignToInHouseMotoboy: (orderNumber: string, customerName: string, deliveryAddress: string) => void;
-  onAddEntregaFacilOrder: (orderNumber: string, customerName: string, deliveryAddress: string, courierName: string) => void;
+  onAssignToInHouseMotoboy: (orderNumber: string, customerName: string, deliveryAddress: string, confirmationCode?: string) => void;
+  onAddEntregaFacilOrder: (orderNumber: string, customerName: string, deliveryAddress: string, courierName: string, confirmationCode?: string) => void;
   onConcludeOrder?: (orderNumber: string) => void;
 }
 
@@ -480,7 +481,8 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       const customerName = targetOrderObj?.customerName || "Cliente iFood";
       const deliveryAddress = targetOrderObj?.deliveryAddress || "Entrega Fácil";
       const cleanCourierName = courierData.courierName.replace(" (iFood)", "");
-      onAddEntregaFacilOrder(orderNumber, customerName, deliveryAddress, cleanCourierName);
+      const ifoodCode = targetOrderObj?.confirmationCode || orderNumber.slice(-4);
+      onAddEntregaFacilOrder(orderNumber, customerName, deliveryAddress, cleanCourierName, ifoodCode);
 
       onShowAlert(`Motoboy do iFood (${cleanCourierName}) chamado com sucesso para o pedido Nº ${orderNumber}!`, 'success');
     } catch (err) {
@@ -1084,7 +1086,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                               <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between text-[11px] text-amber-900 font-semibold">
                                 <span>Código de Confirmação iFood:</span>
                                 <span className="font-mono font-black bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
-                                  #{order.orderNumber.slice(-4)}
+                                  {order.confirmationCode ? `#${order.confirmationCode}` : `#${order.orderNumber.slice(-4)}`}
                                 </span>
                               </div>
                             </div>
@@ -1120,7 +1122,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                                   <button
                                     onClick={async () => {
                                       await handleDispatchOfficial(order.id, order.orderNumber);
-                                      onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress);
+                                      onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress, order.confirmationCode || order.orderNumber.slice(-4));
                                       setShowChangeCourier(false);
                                       setSelectedOrderForModal(null);
                                     }}
@@ -1192,7 +1194,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                                 <button
                                   onClick={async () => {
                                     await handleDispatchOfficial(order.id, order.orderNumber);
-                                    onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress);
+                                    onAssignToInHouseMotoboy(order.orderNumber, order.customerName, order.deliveryAddress, order.confirmationCode || order.orderNumber.slice(-4));
                                     setSelectedOrderForModal(null);
                                   }}
                                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-[0.99]"
