@@ -77,24 +77,28 @@ export const MotoboyPortal: React.FC<MotoboyPortalProps> = ({
     }));
   };
 
-  const handleConfirmOrder = (orderId: string, inputCode?: string, codeRequired?: boolean) => {
+  const handleConfirmOrder = (orderId: string, inputCode?: string) => {
     const order = myOrders.find(o => o.id === orderId);
     if (!order) return;
 
-    if (codeRequired) {
-      const cleanInput = (inputCode || '').trim();
-      const validCode1 = (order.confirmationCode || '').trim();
-      const validCode2 = (order.orderNumber || '').slice(-4);
-      const isFourDigitNumber = /^\d{4}$/.test(cleanInput);
+    const cleanInput = (inputCode || '').trim();
+    if (!cleanInput) {
+      onShowAlert(`Por favor, digite o número do pedido #${order.orderNumber} ou o código de 4 dígitos para confirmar a entrega.`, 'warning');
+      return;
+    }
 
-      const isValid = 
-        cleanInput.length >= 4 && 
-        (cleanInput === validCode1 || cleanInput === validCode2 || cleanInput === order.orderNumber || isFourDigitNumber);
+    const validCode1 = (order.confirmationCode || '').trim();
+    const validCode2 = (order.orderNumber || '').trim();
+    const validCode3 = (order.orderNumber || '').replace(/\D/g, '').slice(-4);
 
-      if (!isValid) {
-        onShowAlert('❌ Código de entrega incorreto. Digite o código de 4 dígitos enviado pelo iFood.', 'error');
-        return;
-      }
+    const isValid =
+      (validCode1 && cleanInput === validCode1) ||
+      (validCode2 && cleanInput === validCode2) ||
+      (validCode3 && cleanInput === validCode3);
+
+    if (!isValid) {
+      onShowAlert(`❌ Código incorreto! Digite o número do pedido (#${order.orderNumber}) para concluir.`, 'error');
+      return;
     }
 
     onUpdateOrderDeliveryStatus(orderId, 'entregue');
@@ -558,25 +562,15 @@ export const MotoboyPortal: React.FC<MotoboyPortalProps> = ({
                                 className="w-24 bg-slate-950 border border-slate-800 px-2.5 py-1.5 rounded-xl text-xs font-mono font-black text-center text-white focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none"
                               />
                               <button
-                                onClick={() => handleConfirmOrder(order.id, deliveryCodes[order.id], true)}
-                                className="bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-[11px] py-1.5 px-3.5 rounded-xl transition cursor-pointer border-0 shadow-sm shadow-amber-500/10"
+                                onClick={() => handleConfirmOrder(order.id, deliveryCodes[order.id])}
+                                className="bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-slate-950 font-black text-xs py-2 px-4 rounded-xl transition cursor-pointer border-0 shadow-sm shadow-amber-500/10 flex items-center gap-1.5 shrink-0"
                               >
-                                Validar Código
+                                <span>Concluir Entrega</span>
                               </button>
                             </div>
-                            <span className="text-[9px] font-semibold text-slate-500 block mt-1">
-                              Código iFood: <span className="font-mono text-amber-300 font-extrabold">{order.confirmationCode ? `#${order.confirmationCode}` : `#${order.orderNumber.slice(-4)}`}</span>
+                            <span className="text-[10px] font-semibold text-slate-400 block mt-1">
+                              Digite o número do pedido <span className="font-mono text-amber-300 font-extrabold">#{order.orderNumber}</span> ou código do cliente para liberar.
                             </span>
-                          </div>
-
-                          {/* Manual Confirmation Button */}
-                          <div className="shrink-0">
-                            <button
-                              onClick={() => handleConfirmOrder(order.id, undefined, false)}
-                              className="w-full sm:w-auto bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white font-extrabold text-[11px] py-2 px-3 rounded-xl transition cursor-pointer border border-slate-700/60"
-                            >
-                              Confirmar Sem Código
-                            </button>
                           </div>
 
                         </div>

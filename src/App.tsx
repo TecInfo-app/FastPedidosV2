@@ -925,12 +925,25 @@ export default function App() {
         const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
         const API_BASE = (localStorage.getItem('ifood_worker_url') || (import.meta as any).env?.VITE_API_URL || 'https://ifood-integracao.iranildo-jobs.workers.dev').replace(/\/$/, '');
 
+        // Find actual iFood UUID from cached polled/imported lists
+        let realIFoodId = order.id;
+        try {
+          const polled = JSON.parse(localStorage.getItem('ifood_polled_orders') || '[]');
+          const imported = JSON.parse(localStorage.getItem('ifood_imported_orders') || '[]');
+          const allIfood = [...polled, ...imported];
+          const found = allIfood.find((o: any) => o.orderNumber === order.orderNumber || o.id === order.orderNumber || o.id === order.id);
+          if (found && found.id && found.id.length > 20) {
+            realIFoodId = found.id;
+          }
+        } catch (e) {}
+
         // Persist in local storage concluded cache
         try {
           const saved = localStorage.getItem('ifood_concluded_orders');
           const parsed = saved ? JSON.parse(saved) : [];
           if (!parsed.includes(order.orderNumber)) parsed.push(order.orderNumber);
           if (!parsed.includes(order.id)) parsed.push(order.id);
+          if (realIFoodId && !parsed.includes(realIFoodId)) parsed.push(realIFoodId);
           localStorage.setItem('ifood_concluded_orders', JSON.stringify(parsed));
         } catch (e) {
           // ignore
@@ -940,12 +953,12 @@ export default function App() {
           clientId,
           clientSecret,
           merchantId,
-          orderId: order.id,
+          orderId: realIFoodId,
           orderNumber: order.orderNumber,
           sandbox
         });
 
-        fetch(`${API_BASE}/api/ifood/orders/${order.orderNumber}/conclude`, {
+        fetch(`${API_BASE}/api/ifood/orders/${realIFoodId || order.orderNumber}/conclude`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: payload
