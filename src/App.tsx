@@ -571,6 +571,7 @@ export default function App() {
       return;
     }
 
+    const codeFromOrder = pendingOrderNumber.replace(/\D/g, '').slice(-4) || pendingOrderNumber.slice(-4);
     const newOrder: Order = {
       id: generateId(),
       orderNumber: pendingOrderNumber,
@@ -582,7 +583,7 @@ export default function App() {
       customerName: pendingCustomerName || undefined,
       deliveryAddress: pendingDeliveryAddress || undefined,
       deliveryStatus: 'pendente',
-      confirmationCode: Math.floor(1000 + Math.random() * 9000).toString(),
+      confirmationCode: codeFromOrder.length === 4 ? codeFromOrder : Math.floor(1000 + Math.random() * 9000).toString(),
     };
 
     if (activeOwnerId) {

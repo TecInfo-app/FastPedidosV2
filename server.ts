@@ -350,19 +350,19 @@ async function startServer() {
   });
 
   // iFood Conclude Order Endpoint
-  app.post("/api/ifood/orders/:id/conclude", async (req, res) => {
-    const { id } = req.params;
+  const handleConcludeRoute = async (req: express.Request, res: express.Response) => {
+    const id = req.params.id || req.body.orderId || req.body.orderNumber;
     const { clientId, clientSecret, merchantId, orderNumber, sandbox } = req.body;
     updateIFoodCredentials(clientId, clientSecret, merchantId);
 
-    if (!clientId || !clientSecret || !merchantId) {
+    if (!clientId || !clientSecret || !merchantId || !id) {
       return res.status(400).json({
         success: false,
-        message: "Configuração do iFood incompleta. Forneça Client ID, Client Secret e Merchant ID."
+        message: "Configuração do iFood incompleta. Forneça Client ID, Client Secret, Merchant ID e o ID do Pedido."
       });
     }
 
-    if (sandbox || id.startsWith('ifood-test-')) {
+    if (sandbox || String(id).startsWith('ifood-test-')) {
       console.log(`[iFood Sandbox] Simulando conclusão para pedido ${orderNumber || id}`);
       await new Promise((resolve) => setTimeout(resolve, 800));
       return res.json({
@@ -429,10 +429,14 @@ async function startServer() {
         message: `Erro interno ao concluir pedido no iFood: ${error.message}`
       });
     }
-  });
+  };
 
-app.post("/api/ifood/dispatch", async (req, res) => {
-    const { clientId, clientSecret, merchantId, orderId, orderNumber, sandbox } = req.body;
+  app.post("/api/ifood/orders/:id/conclude", handleConcludeRoute);
+  app.post("/api/ifood/conclude", handleConcludeRoute);
+
+  const handleDispatchRoute = async (req: express.Request, res: express.Response) => {
+    const orderId = req.params.id || req.body.orderId;
+    const { clientId, clientSecret, merchantId, orderNumber, sandbox } = req.body;
     updateIFoodCredentials(clientId, clientSecret, merchantId);
 
     if (!clientId || !clientSecret || !merchantId || (!orderNumber && !orderId)) {
@@ -592,7 +596,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
           success: true,
           customerName,
           deliveryAddress,
-          message: `Pedido ${orderNumber} despachado com sucesso no iFood!`
+          message: `Pedido ${orderNumber || targetOrderId} despachado com sucesso no iFood!`
         });
       } else {
         const errBody = await dispatchResponse.text();
@@ -603,7 +607,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
           simulated: true,
           customerName: customerName || "Cliente Teste iFood",
           deliveryAddress: deliveryAddress || "Rua Teste, São Paulo",
-          message: `Pedido ${orderNumber} despachado com sucesso! (Homologação iFood aprovada)`
+          message: `Pedido ${orderNumber || targetOrderId} despachado com sucesso! (Homologação iFood aprovada)`
         });
       }
     } catch (error: any) {
@@ -613,7 +617,10 @@ app.post("/api/ifood/dispatch", async (req, res) => {
         message: `Erro interno ao conectar com a API do iFood: ${error.message}`
       });
     }
-  });
+  };
+
+  app.post("/api/ifood/orders/:id/dispatch", handleDispatchRoute);
+  app.post("/api/ifood/dispatch", handleDispatchRoute);
 
   // GET pending iFood orders
   app.get("/api/ifood/orders", async (req, res) => {

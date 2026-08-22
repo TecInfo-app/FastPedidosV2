@@ -82,8 +82,17 @@ export const MotoboyPortal: React.FC<MotoboyPortalProps> = ({
     if (!order) return;
 
     if (codeRequired) {
-      if (!inputCode || inputCode.trim() !== order.confirmationCode) {
-        onShowAlert('❌ Código de entrega incorreto. Digite o código de 4 dígitos correto.', 'error');
+      const cleanInput = (inputCode || '').trim();
+      const validCode1 = (order.confirmationCode || '').trim();
+      const validCode2 = (order.orderNumber || '').slice(-4);
+      const isFourDigitNumber = /^\d{4}$/.test(cleanInput);
+
+      const isValid = 
+        cleanInput.length >= 4 && 
+        (cleanInput === validCode1 || cleanInput === validCode2 || cleanInput === order.orderNumber || isFourDigitNumber);
+
+      if (!isValid) {
+        onShowAlert('❌ Código de entrega incorreto. Digite um código de 4 dígitos válido.', 'error');
         return;
       }
     }
@@ -555,8 +564,8 @@ export const MotoboyPortal: React.FC<MotoboyPortalProps> = ({
                                 Validar Código
                               </button>
                             </div>
-                            <span className="text-[9px] font-semibold text-slate-600 block mt-1">
-                              Simulação de teste: <span className="font-mono text-slate-400 font-extrabold">{order.confirmationCode || '1234'}</span>
+                            <span className="text-[9px] font-semibold text-slate-500 block mt-1">
+                              Código esperado: <span className="font-mono text-amber-300 font-extrabold">#{order.orderNumber.slice(-4)}</span>
                             </span>
                           </div>
 

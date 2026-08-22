@@ -456,10 +456,24 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
       setIFoodOrders(updateFn);
       setImportedOrders(updateFn);
 
-      // Also mark order as dispatched immediately so it is in route
+      // Also mark order as dispatched immediately so it is in route and send dispatch to iFood
       const updatedDispatched = Array.from(new Set([...dispatchedOrderIds, orderId]));
       setDispatchedOrderIds(updatedDispatched);
       localStorage.setItem('ifood_dispatched_orders', JSON.stringify(updatedDispatched));
+
+      // Send dispatch signal to iFood
+      const clientId = localStorage.getItem('ifood_client_id') || '';
+      const clientSecret = localStorage.getItem('ifood_client_secret') || '';
+      const merchantId = localStorage.getItem('ifood_merchant_id') || '';
+      const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
+
+      if (clientId && clientSecret && merchantId) {
+        fetch(`${API_BASE}/api/ifood/dispatch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId, clientSecret, merchantId, orderId, orderNumber, sandbox })
+        }).catch(console.warn);
+      }
 
       // Auto-register order in the main active dashboard under "iFood: [Entregador]"
       const targetOrderObj = displayedOrders.find((o) => o.id === orderId);
@@ -538,11 +552,20 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
     try {
       if (clientId && clientSecret && merchantId) {
-        await fetch(`${API_BASE}/api/ifood/orders/${orderId}/conclude`, {
+        const payload = JSON.stringify({ clientId, clientSecret, merchantId, orderId, orderNumber, sandbox });
+        const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/conclude`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientId, clientSecret, merchantId, orderNumber, sandbox })
-        }).catch(console.warn);
+          body: payload
+        }).catch(() => null);
+
+        if (!res || !res.ok) {
+          await fetch(`${API_BASE}/api/ifood/conclude`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+          }).catch(console.warn);
+        }
       }
     } catch (err) {
       console.warn("Error calling conclude API:", err);
