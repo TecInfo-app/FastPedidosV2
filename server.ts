@@ -96,11 +96,14 @@ async function startServer() {
         allEvents = allEvents.concat(events);
 
         // Acknowledge immediately to Firefly Audit
-        const ackBody = events.map(e => ({ id: e.id }));
+        const ackBody = events.filter(e => e && (e.id || e.eventId)).map(e => ({ id: e.id || e.eventId }));
         const ackHeaders: Record<string, string> = {
           "Authorization": `Bearer ${accessToken}`,
           "Content-Type": "application/json"
         };
+        if (merchantId) {
+          ackHeaders["x-polling-merchants"] = merchantId;
+        }
 
         const ackResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events/acknowledgment", {
           method: "POST",
@@ -222,15 +225,20 @@ async function startServer() {
         });
         if (tokenResponse.ok) {
           const { accessToken } = (await tokenResponse.json()) as { accessToken: string };
-          const ackBody = events.filter(e => e && e.id).map(e => ({ id: e.id }));
+          const ackBody = events.filter(e => e && (e.id || e.eventId)).map(e => ({ id: e.id || e.eventId }));
           
           if (ackBody.length > 0) {
+            const ackHeaders: Record<string, string> = {
+              "Authorization": `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            };
+            if (merchantId) {
+              ackHeaders["x-polling-merchants"] = merchantId;
+            }
+
             const ackResponse = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events/acknowledgment", {
               method: "POST",
-              headers: {
-                "Authorization": `Bearer ${accessToken}`,
-                "Content-Type": "application/json"
-              },
+              headers: ackHeaders,
               body: JSON.stringify(ackBody)
             });
             console.log(`[FIREFLY AUDIT WEBHOOK ACK] Status: ${ackResponse.status} | Events ACKed: ${ackBody.length}`);
