@@ -915,6 +915,60 @@ export default function App() {
         handleFirestoreError(error, OperationType.UPDATE, `users/${activeOwnerId}/orders/${orderId}`);
       }
     }
+
+    // When marked as entregue (e.g. motoboy typed confirmation code or manual finish), notify iFood to conclude and log official action
+    if (deliveryStatus === 'entregue') {
+      try {
+        const clientId = localStorage.getItem('ifood_client_id') || '';
+        const clientSecret = localStorage.getItem('ifood_client_secret') || '';
+        const merchantId = localStorage.getItem('ifood_merchant_id') || '';
+        const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
+        const API_BASE = (localStorage.getItem('ifood_worker_url') || (import.meta as any).env?.VITE_API_URL || 'https://ifood-integracao.iranildo-jobs.workers.dev').replace(/\/$/, '');
+
+        // Persist in local storage concluded cache
+        try {
+          const saved = localStorage.getItem('ifood_concluded_orders');
+          const parsed = saved ? JSON.parse(saved) : [];
+          if (!parsed.includes(order.orderNumber)) parsed.push(order.orderNumber);
+          if (!parsed.includes(order.id)) parsed.push(order.id);
+          localStorage.setItem('ifood_concluded_orders', JSON.stringify(parsed));
+        } catch (e) {
+          // ignore
+        }
+
+        const payload = JSON.stringify({
+          clientId,
+          clientSecret,
+          merchantId,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          sandbox
+        });
+
+        fetch(`${API_BASE}/api/ifood/orders/${order.orderNumber}/conclude`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        }).catch(() => {
+          fetch(`${API_BASE}/api/ifood/conclude`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+          }).catch(console.warn);
+        });
+
+        // Also call local server if available
+        if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname.includes('run.app'))) {
+          fetch(`/api/ifood/conclude`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload
+          }).catch(console.warn);
+        }
+      } catch (err) {
+        console.warn('Erro ao notificar conclusão ao iFood:', err);
+      }
+    }
   };
 
   if (authLoading) {

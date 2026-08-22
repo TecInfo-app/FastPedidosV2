@@ -320,6 +320,34 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     }
   }
 
+  const getOrderStatus = (order: IFoodOrder): 'cancelled' | 'concluded' | 'dispatched' | 'confirmed' | 'new' => {
+    if (cancelledOrderIds.includes(order.id) || cancelledOrderIds.includes(order.orderNumber)) {
+      return 'cancelled';
+    }
+    const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
+    const isDeliveredInHouse = assignedInHouseOrder && assignedInHouseOrder.deliveryStatus === 'entregue';
+    if (
+      concludedOrderIds.includes(order.id) ||
+      concludedOrderIds.includes(order.orderNumber) ||
+      isDeliveredInHouse ||
+      order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e'
+    ) {
+      return 'concluded';
+    }
+    if (
+      dispatchedOrderIds.includes(order.id) ||
+      dispatchedOrderIds.includes(order.orderNumber) ||
+      !!assignedInHouseOrder ||
+      order.entregaFacilRequested
+    ) {
+      return 'dispatched';
+    }
+    if (confirmedOrderIds.includes(order.id) || confirmedOrderIds.includes(order.orderNumber)) {
+      return 'confirmed';
+    }
+    return 'new';
+  };
+
   const fetchIFoodOrders = async (silent = false) => {
     const clientId = localStorage.getItem('ifood_client_id') || '';
     const clientSecret = localStorage.getItem('ifood_client_secret') || '';
@@ -553,26 +581,24 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
     const sandbox = localStorage.getItem('ifood_sandbox') === 'true';
 
     try {
-      if (clientId && clientSecret && merchantId) {
-        const payload = JSON.stringify({ clientId, clientSecret, merchantId, orderId, orderNumber, sandbox });
-        const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/conclude`, {
+      const payload = JSON.stringify({ clientId, clientSecret, merchantId, orderId, orderNumber, sandbox });
+      const res = await fetch(`${API_BASE}/api/ifood/orders/${orderId}/conclude`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      }).catch(() => null);
+
+      if (!res || !res.ok) {
+        await fetch(`${API_BASE}/api/ifood/conclude`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: payload
-        }).catch(() => null);
-
-        if (!res || !res.ok) {
-          await fetch(`${API_BASE}/api/ifood/conclude`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload
-          }).catch(console.warn);
-        }
+        }).catch(console.warn);
       }
     } catch (err) {
       console.warn("Error calling conclude API:", err);
     } finally {
-      const updated = Array.from(new Set([...concludedOrderIds, orderId]));
+      const updated = Array.from(new Set([...concludedOrderIds, orderId, orderNumber]));
       setConcludedOrderIds(updated);
       localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
       
@@ -695,15 +721,6 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
           {/* Compact Filter and View Mode Header */}
           {displayedOrders.length > 0 && (() => {
-            const getOrderStatus = (order: IFoodOrder) => {
-              if (cancelledOrderIds.includes(order.id)) return 'cancelled';
-              if (concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e') return 'concluded';
-              const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
-              if (dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested) return 'dispatched';
-              if (confirmedOrderIds.includes(order.id)) return 'confirmed';
-              return 'new';
-            };
-
             const countNew = displayedOrders.filter(o => getOrderStatus(o) === 'new').length;
             const countConfirmed = displayedOrders.filter(o => getOrderStatus(o) === 'confirmed').length;
             const countDispatched = displayedOrders.filter(o => getOrderStatus(o) === 'dispatched').length;
@@ -801,14 +818,6 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
 
           {(() => {
             const filteredOrders = displayedOrders.filter((order) => {
-              const getOrderStatus = (o: IFoodOrder) => {
-                if (cancelledOrderIds.includes(o.id)) return 'cancelled';
-                if (concludedOrderIds.includes(o.id) || o.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e') return 'concluded';
-                const assignedInHouseOrder = allOrders.find((i) => i.orderNumber === o.orderNumber);
-                if (dispatchedOrderIds.includes(o.id) || !!assignedInHouseOrder || o.entregaFacilRequested) return 'dispatched';
-                if (confirmedOrderIds.includes(o.id)) return 'confirmed';
-                return 'new';
-              };
               const status = getOrderStatus(order);
 
               if (orderFilter === 'new') return status === 'new';
@@ -832,19 +841,14 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredOrders.map((order) => {
+                  const status = getOrderStatus(order);
                   const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
-                  const isAlreadyAssigned = !!assignedInHouseOrder;
-                  const isAssignedViaIFoodDelivery = isAlreadyAssigned && assignedInHouseOrder.motoboyName.startsWith("iFood:");
-                  const isCancelled = cancelledOrderIds.includes(order.id);
-                  const isConcluded = concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e';
-                  const isDispatched = dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
-                  const isConfirmed = confirmedOrderIds.includes(order.id);
 
                   let statusBadge = <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-0.5 rounded-full">Novo</span>;
-                  if (isCancelled) statusBadge = <span className="bg-rose-100 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-full">Cancelado</span>;
-                  else if (isConcluded) statusBadge = <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-full">Concluído</span>;
-                  else if (isDispatched) statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">Despachado</span>;
-                  else if (isConfirmed) statusBadge = <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full">Em Preparo</span>;
+                  if (status === 'cancelled') statusBadge = <span className="bg-rose-100 text-rose-700 text-[10px] font-black px-2 py-0.5 rounded-full">Cancelado</span>;
+                  else if (status === 'concluded') statusBadge = <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-0.5 rounded-full">Concluído</span>;
+                  else if (status === 'dispatched') statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full">Despachado</span>;
+                  else if (status === 'confirmed') statusBadge = <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-0.5 rounded-full">Em Preparo</span>;
 
                   return (
                     <div
@@ -887,18 +891,13 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
                 <div className="divide-y divide-slate-100">
                   {filteredOrders.map((order) => {
-                    const assignedInHouseOrder = allOrders.find((o) => o.orderNumber === order.orderNumber);
-                    const isAlreadyAssigned = !!assignedInHouseOrder;
-                    const isCancelled = cancelledOrderIds.includes(order.id);
-                    const isConcluded = concludedOrderIds.includes(order.id) || order.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e';
-                    const isDispatched = dispatchedOrderIds.includes(order.id) || !!assignedInHouseOrder || order.entregaFacilRequested;
-                    const isConfirmed = confirmedOrderIds.includes(order.id);
+                    const status = getOrderStatus(order);
 
                     let statusBadge = <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Novo</span>;
-                    if (isCancelled) statusBadge = <span className="bg-rose-100 text-rose-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Cancelado</span>;
-                    else if (isConcluded) statusBadge = <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Concluído</span>;
-                    else if (isDispatched) statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Despachado</span>;
-                    else if (isConfirmed) statusBadge = <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Em Preparo</span>;
+                    if (status === 'cancelled') statusBadge = <span className="bg-rose-100 text-rose-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Cancelado</span>;
+                    else if (status === 'concluded') statusBadge = <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Concluído</span>;
+                    else if (status === 'dispatched') statusBadge = <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Despachado</span>;
+                    else if (status === 'confirmed') statusBadge = <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2.5 py-0.5 rounded-full">Em Preparo</span>;
 
                     return (
                       <div
@@ -1001,14 +1000,6 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                 <div className="pt-2 border-t border-slate-100 space-y-2">
                   <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block">Ações e Status do Pedido</span>
                   {(() => {
-                    const getOrderStatus = (o: IFoodOrder) => {
-                      if (cancelledOrderIds.includes(o.id)) return 'cancelled';
-                      if (concludedOrderIds.includes(o.id) || o.id === '92e1f8c2-fd4c-4772-8cfe-f106cfc18f3e') return 'concluded';
-                      const assignedInHouseOrder = allOrders.find((i) => i.orderNumber === o.orderNumber);
-                      if (dispatchedOrderIds.includes(o.id) || !!assignedInHouseOrder || o.entregaFacilRequested) return 'dispatched';
-                      if (confirmedOrderIds.includes(o.id)) return 'confirmed';
-                      return 'new';
-                    };
                     const status = getOrderStatus(order);
 
                     return (

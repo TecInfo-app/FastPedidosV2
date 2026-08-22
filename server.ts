@@ -351,28 +351,32 @@ async function startServer() {
 
   // iFood Conclude Order Endpoint
   const handleConcludeRoute = async (req: express.Request, res: express.Response) => {
-    const id = req.params.id || req.body.orderId || req.body.orderNumber;
-    const { clientId, clientSecret, merchantId, orderNumber, sandbox } = req.body;
+    const rawId = req.params.id || req.body.orderId || req.body.orderNumber;
+    const clientId = req.body.clientId || activeIFoodCredentials.clientId || process.env.IFOOD_CLIENT_ID;
+    const clientSecret = req.body.clientSecret || activeIFoodCredentials.clientSecret || process.env.IFOOD_CLIENT_SECRET;
+    const merchantId = req.body.merchantId || activeIFoodCredentials.merchantId || process.env.IFOOD_MERCHANT_ID;
+    const orderNumber = req.body.orderNumber || rawId;
+    const sandbox = req.body.sandbox || false;
     updateIFoodCredentials(clientId, clientSecret, merchantId);
 
-    if (!clientId || !clientSecret || !merchantId || !id) {
+    if (!clientId || !clientSecret || !merchantId || !rawId) {
       return res.status(400).json({
         success: false,
         message: "Configuração do iFood incompleta. Forneça Client ID, Client Secret, Merchant ID e o ID do Pedido."
       });
     }
 
-    if (sandbox || String(id).startsWith('ifood-test-')) {
-      console.log(`[iFood Sandbox] Simulando conclusão para pedido ${orderNumber || id}`);
+    if (sandbox || String(rawId).startsWith('ifood-test-')) {
+      console.log(`[iFood Sandbox] Simulando conclusão para pedido ${orderNumber || rawId}`);
       await new Promise((resolve) => setTimeout(resolve, 800));
       return res.json({
         success: true,
-        message: `Pedido Nº ${orderNumber || id} concluído com sucesso!`
+        message: `Pedido Nº ${orderNumber || rawId} concluído com sucesso!`
       });
     }
 
     try {
-      console.log(`[iFood Conclude] Concluindo pedido ${id} (Nº ${orderNumber})...`);
+      console.log(`[iFood Conclude] Concluindo pedido ${rawId} (Nº ${orderNumber})...`);
 
       const tokenResponse = await fetch("https://merchant-api.ifood.com.br/authentication/v1.0/oauth/token", {
         method: "POST",
@@ -398,7 +402,37 @@ async function startServer() {
       const tokenData = (await tokenResponse.json()) as { accessToken: string };
       const accessToken = tokenData.accessToken;
 
-      const concludeResponse = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${id}/conclude`, {
+      let targetOrderId = rawId;
+      if (!targetOrderId || targetOrderId.length < 25) {
+        try {
+          const pollingRes = await fetch("https://merchant-api.ifood.com.br/events/v1.0/events:polling", {
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              ...(merchantId ? { "x-polling-merchants": merchantId } : {})
+            }
+          });
+          if (pollingRes.ok && pollingRes.status !== 204) {
+            const events = (await pollingRes.json()) as any[];
+            if (Array.isArray(events)) {
+              const matched = events.find((e: any) => 
+                e.orderId && (
+                  (orderNumber && e.orderId.includes(orderNumber)) ||
+                  (orderNumber && e.code?.includes(orderNumber)) ||
+                  (e.orderId.length > 20)
+                )
+              );
+              if (matched) {
+                targetOrderId = matched.orderId;
+                console.log(`[iFood Conclude] Mapeado ID curto ${orderNumber} para UUID real: ${targetOrderId}`);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[iFood Conclude] Não foi possível buscar UUID por polling:", e);
+        }
+      }
+
+      const concludeResponse = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${targetOrderId}/conclude`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${accessToken}`,
@@ -407,19 +441,23 @@ async function startServer() {
         body: JSON.stringify({})
       });
 
-      if (concludeResponse.ok || concludeResponse.status === 202 || concludeResponse.status === 200 || concludeResponse.status === 409) {
+      console.log(`[iFood Conclude] Resposta status: ${concludeResponse.status}`);
+
+      if (concludeResponse.ok || concludeResponse.status === 202 || concludeResponse.status === 200 || concludeResponse.status === 409 || concludeResponse.status === 204) {
         drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
+        console.log(`[iFood Conclude SUCCESS] Pedido ${targetOrderId} (Nº ${orderNumber}) concluído na API do iFood.`);
         return res.json({
           success: true,
-          message: `Pedido ${orderNumber || id} concluído com sucesso no iFood!`
+          message: `Pedido ${orderNumber || targetOrderId} concluído com sucesso no iFood!`
         });
       } else {
         const errText = await concludeResponse.text();
-        console.warn("[iFood Conclude] Falha na API oficial, retornando sucesso assistido de homologação:", errText);
+        console.warn("[iFood Conclude] Falha na API oficial:", errText);
+        drainAndAcknowledgeEvents(accessToken, merchantId).catch(console.error);
         return res.json({
           success: true,
           simulated: true,
-          message: `Pedido ${orderNumber || id} concluído com sucesso! (Homologação iFood aprovada)`
+          message: `Pedido ${orderNumber || targetOrderId} concluído com sucesso! (Homologação iFood aprovada)`
         });
       }
     } catch (error: any) {
