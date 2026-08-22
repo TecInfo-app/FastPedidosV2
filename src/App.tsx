@@ -976,6 +976,12 @@ export default function App() {
           onShowAlert={showToast}
           onAssignToInHouseMotoboy={handleStartOrder}
           onAddEntregaFacilOrder={handleAddEntregaFacilOrder}
+          onConcludeOrder={(orderNumber) => {
+            const matching = allOrders.find(o => o.orderNumber === orderNumber);
+            if (matching) {
+              handleUpdateOrderDeliveryStatus(matching.id, 'entregue');
+            }
+          }}
         />
 
         {/* Dynamic active search filter pill indicator */}
