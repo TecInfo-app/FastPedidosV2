@@ -471,7 +471,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
             let isOrderConcluded = false;
             let isOrderDispatched = false;
 
-            // Se o evento for PLACED (novo pedido feito)
+            // Processamento por código de evento
             if (event.code === "PLACED") {
               try {
                 console.log(`[iFood Polling] Auto-confirmando pedido ${event.orderId}...`);
@@ -493,12 +493,18 @@ app.post("/api/ifood/dispatch", async (req, res) => {
               } catch (confirmErr) {
                 console.error(`[iFood Polling] Erro ao tentar confirmar pedido ${event.orderId}:`, confirmErr);
               }
-            } else if (event.code === "CANCELLATION_REQUESTED" || event.code === "CANCELLATION_COMMAND") {
+            } else if (event.code === "ORDER_PATCHED") {
+              console.log(`[iFood Polling] Pedido modificado (ORDER_PATCHED) para ${event.orderId}. Detalhes atualizados.`);
+            } else if (event.code === "PREPARATION_STARTED") {
+              console.log(`[iFood Polling] Preparação iniciada para ${event.orderId}.`);
+            } else if (event.code === "CARRIER_ASSIGNED" || event.code === "DRIVER_ASSIGNED") {
+              console.log(`[iFood Polling] Entregador iFood atribuído ao pedido ${event.orderId}:`, event.metadata);
+            } else if (event.code === "CANCELLATION_REQUESTED" || event.code === "CANCELLATION_COMMAND" || event.code === "HANDSHAKE") {
               if (event.metadata) {
                 orderCancelReason = event.metadata.CANCEL_REASON || event.metadata.cancelReason || event.metadata.Reason || "Problemas no sistema";
               }
               try {
-                console.log(`[iFood Polling] Auto-aceitando cancelamento para pedido ${event.orderId}...`);
+                console.log(`[iFood Polling] Auto-aceitando cancelamento/handshake para pedido ${event.orderId}...`);
                 const cancelAcceptRes = await fetch(`https://merchant-api.ifood.com.br/order/v1.0/orders/${event.orderId}/acceptCancellation`, {
                   method: "POST",
                   headers: {
@@ -517,7 +523,7 @@ app.post("/api/ifood/dispatch", async (req, res) => {
               }
             } else if (event.code === "CONCLUDED") {
               isOrderConcluded = true;
-            } else if (event.code === "DISPATCHED") {
+            } else if (event.code === "DISPATCHED" || event.code === "READY_TO_PICKUP") {
               isOrderDispatched = true;
             }
 
