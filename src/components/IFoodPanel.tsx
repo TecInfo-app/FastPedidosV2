@@ -475,7 +475,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
         setConfirmedOrderIds(updatedConfirmed);
         localStorage.setItem('ifood_confirmed_orders', JSON.stringify(updatedConfirmed));
       } else {
-        onShowAlert(`[iFood] ${data.message}`, 'info');
+        onShowAlert(data.message || data.error || 'Falha ao confirmar pedido no iFood', 'error');
       }
     } catch (err) {
       console.error(err);
@@ -511,7 +511,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
         setDispatchedOrderIds(updatedDispatched);
         localStorage.setItem('ifood_dispatched_orders', JSON.stringify(updatedDispatched));
       } else {
-        onShowAlert(`[iFood] ${data.message}`, 'error');
+        onShowAlert(data.message || data.error || 'Falha ao despachar pedido no iFood', 'error');
       }
     } catch (err) {
       console.error(err);
@@ -547,7 +547,7 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
         setConcludedOrderIds(updated);
         localStorage.setItem('ifood_concluded_orders', JSON.stringify(updated));
       } else {
-        onShowAlert(`[iFood] ${data.message}`, 'info');
+        onShowAlert(data.message || data.error || 'Falha ao concluir pedido no iFood', 'error');
       }
     } catch (err) {
       console.error(err);
@@ -1002,13 +1002,24 @@ export const IFoodPanel: React.FC<IFoodPanelProps> = ({
                             <p className="text-xs text-emerald-900 font-extrabold">Pedido Concluído (iFood)</p>
                           </div>
                         ) : status === 'cancelled' ? (
-                          <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-xl space-y-1 text-center">
+                          <div className="bg-rose-100/90 border border-rose-300 p-3.5 rounded-xl space-y-3 text-center">
                             <span className="text-[11px] uppercase font-black tracking-widest text-rose-900 flex items-center justify-center gap-1.5">
                               <XCircle className="w-4 h-4 text-rose-700 stroke-[3]" /> Pedido Cancelado no iFood
                             </span>
                             <p className="text-[11px] text-rose-800 font-bold">
                               {order.cancelReason ? `Motivo: ${order.cancelReason}` : "Cancelamento confirmado e registrado na plataforma."}
                             </p>
+                            <button
+                              onClick={() => {
+                                const updated = cancelledOrderIds.filter(id => id !== order.id);
+                                setCancelledOrderIds(updated);
+                                localStorage.setItem('ifood_cancelled_orders', JSON.stringify(updated));
+                                onShowAlert(`Pedido Nº ${order.orderNumber} reativado com sucesso!`, 'success');
+                              }}
+                              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                            >
+                              <span>Reativar / Descancelar Pedido</span>
+                            </button>
                           </div>
                         ) : status === 'dispatched' ? (
                           isAssignedViaIFoodDelivery ? (
